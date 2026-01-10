@@ -1,0 +1,104 @@
+#dropvault-fab-container {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  z-index: 2147483647;
+  display: flex;
+  flex-direction: column-reverse;
+  align-items: center;
+  gap: 12px;
+  font-family: 'Inter', sans-serif;
+}
+
+.dropvault-fab-trigger {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #4f46e5, #818cf8);
+  box-shadow: 0 4px 12px rgba(79, 70, 229, 0.4);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  border: none;
+  padding: 0;
+}
+
+.dropvault-fab-trigger:hover {
+  transform: scale(1.05);
+  box-shadow: 0 6px 16px rgba(79, 70, 229, 0.5);
+}
+
+.dropvault-fab-trigger.active {
+  transform: rotate(135deg);
+  background: #374151;
+}
+
+.dropvault-fab-menu {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(20px);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.dropvault-fab-menu.active {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0);
+}
+
+.dropvault-fab-item {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: white;
+  border: 1px solid #e5e7eb;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #4b5563;
+  transition: all 0.2s;
+  position: relative;
+}
+
+.dropvault-fab-item:hover {
+  background: #f9fafb;
+  color: #4f46e5;
+  border-color: #4f46e5;
+}
+
+.dropvault-fab-item::before {
+  content: attr(data-label);
+  position: absolute;
+  right: 54px;
+  background: #1f2937;
+  color: white;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+  opacity: 0;
+  visibility: hidden;
+  transition: all 0.2s;
+  pointer-events: none;
+}
+
+.dropvault-fab-item:hover::before {
+  opacity: 1;
+  visibility: visible;
+  right: 60px;
+}
+
+.dropvault-fab-icon {
+  width: 20px;
+  height: 20px;
+  stroke-width: 2;
+}

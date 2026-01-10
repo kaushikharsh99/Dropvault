@@ -1,0 +1,36 @@
+# Dependencies
+node_modules/
+venv/
+.venv/
+env/
+__pycache__/
+*.pyc
+.DS_Store
+
+# Build outputs
+dist/
+build/
+.vite/
+
+# Local env files
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Firebase
+firebase-debug.log
+.firebase/
+firestore-debug.log
+
+# IDEs
+.vscode/
+.idea/
+
+# Large data/uploads (Optional: comment out if you want to upload uploads)
+# uploads/
+
+# Specific project versions
+version 1/
+version 2/

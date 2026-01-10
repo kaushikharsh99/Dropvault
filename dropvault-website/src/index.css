@@ -1,0 +1,152 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+
+/* DropVault Design System - Clean, futuristic, calm */
+
+@layer base {
+  :root {
+    /* Core Background - Soft off-white */
+    --background: 220 20% 97%;
+    --foreground: 220 25% 12%;
+
+    /* Cards & Surfaces */
+    --card: 0 0% 100%;
+    --card-foreground: 220 25% 12%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 220 25% 12%;
+
+    /* Primary - Deep Indigo */
+    --primary: 234 89% 56%;
+    --primary-foreground: 0 0% 100%;
+    --primary-glow: 234 89% 65%;
+
+    /* Secondary - Soft Teal */
+    --secondary: 173 58% 39%;
+    --secondary-foreground: 0 0% 100%;
+
+    /* Muted surfaces */
+    --muted: 220 14% 93%;
+    --muted-foreground: 220 10% 46%;
+
+    /* Accent - Soft purple */
+    --accent: 262 52% 60%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+
+    /* Borders & Inputs */
+    --border: 220 13% 90%;
+    --input: 220 13% 90%;
+    --ring: 234 89% 56%;
+
+    --radius: 0.75rem;
+
+    /* Gradients */
+    --gradient-primary: linear-gradient(135deg, hsl(234 89% 56%) 0%, hsl(262 52% 60%) 100%);
+    --gradient-subtle: linear-gradient(180deg, hsl(220 20% 97%) 0%, hsl(220 14% 93%) 100%);
+    --gradient-glass: linear-gradient(135deg, hsla(0 0% 100% / 0.8) 0%, hsla(0 0% 100% / 0.4) 100%);
+    --gradient-hero: radial-gradient(ellipse at 50% 0%, hsla(234 89% 56% / 0.08) 0%, transparent 60%);
+
+    /* Shadows */
+    --shadow-sm: 0 1px 2px 0 hsla(220 25% 12% / 0.03);
+    --shadow-md: 0 4px 6px -1px hsla(220 25% 12% / 0.05), 0 2px 4px -2px hsla(220 25% 12% / 0.05);
+    --shadow-lg: 0 10px 15px -3px hsla(220 25% 12% / 0.06), 0 4px 6px -4px hsla(220 25% 12% / 0.06);
+    --shadow-xl: 0 20px 25px -5px hsla(220 25% 12% / 0.08), 0 8px 10px -6px hsla(220 25% 12% / 0.08);
+    --shadow-glow: 0 0 40px -10px hsla(234 89% 56% / 0.3);
+
+    /* Sidebar */
+    --sidebar-background: 0 0% 98%;
+    --sidebar-foreground: 240 5.3% 26.1%;
+    --sidebar-primary: 240 5.9% 10%;
+    --sidebar-primary-foreground: 0 0% 98%;
+    --sidebar-accent: 240 4.8% 95.9%;
+    --sidebar-accent-foreground: 240 5.9% 10%;
+    --sidebar-border: 220 13% 91%;
+    --sidebar-ring: 217.2 91.2% 59.8%;
+  }
+
+  .dark {
+    --background: 222 47% 6%;
+    --foreground: 210 40% 98%;
+
+    --card: 222 47% 8%;
+    --card-foreground: 210 40% 98%;
+
+    --popover: 222 47% 8%;
+    --popover-foreground: 210 40% 98%;
+
+    --primary: 234 89% 65%;
+    --primary-foreground: 0 0% 100%;
+    --primary-glow: 234 89% 75%;
+
+    --secondary: 173 58% 45%;
+    --secondary-foreground: 0 0% 100%;
+
+    --muted: 217 32% 17%;
+    --muted-foreground: 215 20% 65%;
+
+    --accent: 262 52% 65%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 62% 30%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 217 32% 17%;
+    --input: 217 32% 17%;
+    --ring: 234 89% 65%;
+
+    --sidebar-background: 240 5.9% 10%;
+    --sidebar-foreground: 240 4.8% 95.9%;
+    --sidebar-primary: 224.3 76.3% 48%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 240 3.7% 15.9%;
+    --sidebar-accent-foreground: 240 4.8% 95.9%;
+    --sidebar-border: 240 3.7% 15.9%;
+    --sidebar-ring: 217.2 91.2% 59.8%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+    font-family: 'Inter', system-ui, sans-serif;
+  }
+}
+
+@layer components {
+  .glass-card {
+    @apply bg-card/80 backdrop-blur-xl border border-border/50 shadow-lg;
+  }
+
+  .gradient-text {
+    @apply bg-clip-text text-transparent;
+    background-image: var(--gradient-primary);
+  }
+
+  .hero-glow {
+    background: var(--gradient-hero);
+  }
+
+  .floating-card {
+    @apply glass-card rounded-2xl p-6 transition-all duration-300;
+    box-shadow: var(--shadow-lg);
+  }
+
+  .floating-card:hover {
+    transform: translateY(-4px);
+    box-shadow: var(--shadow-xl);
+  }
+}

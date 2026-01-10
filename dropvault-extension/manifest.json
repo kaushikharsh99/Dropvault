@@ -1,0 +1,52 @@
+{
+  "manifest_version": 3,
+  "name": "DropVault",
+  "version": "2.6",
+  "description": "One-click capture for your Knowledge Tree.",
+  "permissions": [
+    "storage",
+    "activeTab",
+    "identity",
+    "scripting",
+    "contextMenus",
+    "notifications",
+    "downloads"
+  ],
+  "host_permissions": [
+    "<all_urls>"
+  ],
+  "background": {
+    "service_worker": "src/background.js",
+    "type": "module"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["src/content.js"],
+      "run_at": "document_start"
+    }
+  ],
+  "action": {
+    "default_popup": "src/popup.html"
+  },
+  "commands": {
+    "run-capture": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+7",
+        "mac": "Command+Shift+7"
+      },
+      "description": "Instantly save current page"
+    }
+  },
+  "oauth2": {
+    "client_id": "692304557978-gti3ueeh4gjhkb1b55v8goo5ajs5044m.apps.googleusercontent.com",
+    "scopes": [
+      "openid",
+      "email",
+      "profile"
+    ]
+  },
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'self'; frame-src https://www.youtube.com https://youtube.com https://www.youtube-nocookie.com; connect-src 'self' http://localhost:* ws://localhost:* https://*.firebaseio.com https://*.googleapis.com https://*.ngrok-free.dev;"
+  }
+}
