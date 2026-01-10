@@ -1,78 +1,115 @@
-# DropVault
+# DropVault 🧠🔐
 
-DropVault is a unified knowledge management system that combines a modern web interface with a browser extension for seamless content capture.
+**Your AI-Powered, Private Second Brain.**
 
-## Project Structure
+DropVault is a unified knowledge management system designed to capture, organize, and retrieve your digital life. It combines a seamless browser extension for instant capturing with a powerful, AI-driven local web dashboard for management and semantic search.
 
-This repository contains two main components:
+## ✨ Key Features
 
-- **`dropvault-website/`**: The main web application (React + Vite + FastAPI Backend).
-- **`dropvault-extension/`**: A browser extension (Chrome/Edge) to quickly save links and content to your vault.
+- **🚀 Universal Capture:** Instantly save links, articles, images, and notes from anywhere on the web using the browser extension.
+- **🤖 AI-Powered Search:** Don't just search for keywords. DropVault uses **semantic vector search** (via local embeddings) to find content based on *meaning* and context.
+- **📄 Smart Extraction:**
+    - **OCR:** Automatically extracts text from uploaded images.
+    - **PDF Parsing:** Index and search through the content of your PDF documents.
+    - **Auto-Tagging:** AI analyzes content to suggest relevant tags automatically.
+- **🔒 Privacy First:** Your data logic and AI models run **locally** on your machine. We use Firebase only for secure authentication and file storage synchronization.
+- **⚡ Modern Stack:** Built with React (Vite), Python (FastAPI + PyTorch), and Chrome Extension APIs.
 
-## Setup & Installation
+## 📂 Project Structure
+
+- **`dropvault-website/`**: The main application.
+  - **Frontend:** React + TailwindCSS + ShadcnUI.
+  - **Backend:** Python FastAPI server handling AI models, OCR, and database logic.
+- **`dropvault-extension/`**: A Chromium-based browser extension to interact with the Vault from any tab.
+
+---
+
+## 🚀 Quick Start
 
 ### Prerequisites
+- **Node.js** (v18+)
+- **Python** (v3.10+)
+- **Firebase Project** (for Auth & Storage)
 
-- Node.js (v18+)
-- Python (v3.10+)
-- Firebase Project
+### 1. Configure Environment
 
-### 1. Environment Configuration
+You need to set up your API keys before running the app.
 
-This project uses Firebase for authentication and storage. You need to set up your environment variables.
-
-1.  Navigate to `dropvault-website` and copy the example env file:
+1.  **Website:**
     ```bash
     cd dropvault-website
     cp .env.example .env
+    # Open .env and paste your Firebase credentials
     ```
-2.  Fill in your Firebase credentials in `.env`.
-
-3.  Do the same for the extension:
+2.  **Extension:**
     ```bash
     cd ../dropvault-extension
     cp .env.example .env
+    # Open .env and paste your Firebase credentials
     ```
 
-### 2. Install Dependencies
+### 2. One-Click Installation (Recommended)
 
-**Website (Frontend & Backend):**
+We've provided a script to automatically install all frontend and backend dependencies, set up the virtual environment, and build the extension.
+
 ```bash
-cd dropvault-website
-npm install
-cd backend
-python3 -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-pip install -r requirements.txt
+# From the project root
+chmod +x setup.sh
+./setup.sh
 ```
 
-**Extension:**
-```bash
-cd dropvault-extension
-npm install
-npm run build
-```
+*(This may take a few minutes as it installs large AI libraries like PyTorch)*
 
-## Running the Application
+### 3. Run the System
 
-To start the full system (Website Frontend + Python Backend):
+Launch the full application (Frontend + AI Backend) with a single command:
 
 ```bash
 cd dropvault-website
 python3 start_app.py
 ```
 
-This will launch:
-- Frontend: `http://localhost:5173`
-- Backend: `http://localhost:8000`
+- **Frontend:** `http://localhost:5173`
+- **Backend:** `http://localhost:8000`
 
-## Loading the Extension
+---
 
-1.  Build the extension: `cd dropvault-extension && npm run build`
-2.  Open Chrome/Edge and go to `chrome://extensions`.
-3.  Enable "Developer mode".
-4.  Click "Load unpacked" and select the `dropvault-extension/dist` folder.
+## 🧩 Installing the Browser Extension
 
-## License
+Once the setup is complete, you can load the extension into Chrome, Edge, or Brave:
 
-MIT
+1.  Open your browser and navigate to `chrome://extensions`.
+2.  Toggle **"Developer mode"** (top right).
+3.  Click **"Load unpacked"**.
+4.  Select the **`dropvault-extension/dist`** folder.
+
+---
+
+## 🛠 Manual Setup (Advanced)
+
+If you prefer to install dependencies manually:
+
+<details>
+<summary>Click to expand manual instructions</summary>
+
+**1. Website Frontend**
+```bash
+cd dropvault-website
+npm install
+```
+
+**2. Python Backend**
+```bash
+cd dropvault-website/backend
+python3 -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+pip install -r requirements.txt
+```
+
+**3. Extension**
+```bash
+cd dropvault-extension
+npm install
+npm run build
+```
+</details>
