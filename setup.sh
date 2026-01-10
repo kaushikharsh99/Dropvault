@@ -30,6 +30,9 @@ echo "⬇️ Installing Backend Python Dependencies (This may take a few minutes
 ./venv/bin/pip install --upgrade pip
 ./venv/bin/pip install --no-cache-dir --retries 10 --timeout 300 -r requirements.txt
 
+echo "🎭 Installing Playwright Browsers..."
+./venv/bin/playwright install chromium
+
 cd ../.. # Go back to project root
 
 # --- 3. Extension ---

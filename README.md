@@ -37,6 +37,12 @@ This project requires a **Firebase project** for authentication and storage. **Y
 - **Python** (v3.10+)
 - **Firebase Project**
 
+### 🛠 System Dependencies (Required for OCR)
+For the Image-to-Text (OCR) features to work, you must have **Tesseract OCR** installed on your system:
+- **Ubuntu/Debian:** `sudo apt install tesseract-ocr`
+- **macOS:** `brew install tesseract`
+- **Windows:** Download the installer from [UB Mannheim](https://github.com/UB-Mannheim/tesseract/wiki).
+
 ### 1. Configure Environment
 You need to paste your own Firebase configuration values into the `.env` files.
 
