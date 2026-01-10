@@ -10,6 +10,18 @@ const HeroSection = ({ onLogin, onSignUp }) => {
       <div className="absolute inset-0 hero-glow" />
       
       {
+    /* Hero Visual Background (Merged & Faded) */
+  }
+      <div className="absolute inset-0 z-0 opacity-10 pointer-events-none select-none">
+        <img 
+          src={heroVisual} 
+          alt="Background Visual" 
+          className="w-full h-full object-cover filter blur-[2px] scale-105"
+        />
+        <div className="absolute inset-0 bg-gradient-to-b from-background/80 via-background/50 to-background" />
+      </div>
+
+      {
     /* Floating orbs */
   }
       <div className="absolute top-1/4 left-1/4 w-64 h-64 bg-primary/5 rounded-full blur-3xl animate-float" />
@@ -33,8 +45,8 @@ const HeroSection = ({ onLogin, onSignUp }) => {
             </motion.div>
 
             <h1 className="text-5xl md:text-7xl font-bold tracking-tight mb-6 text-foreground">
-              Drop anything.{" "}
-              <span className="gradient-text">Find everything.</span>
+              Say No to Organizing.{" "}
+              <span className="gradient-text">Start Finding.</span>
             </h1>
 
             <p className="text-xl md:text-2xl text-muted-foreground max-w-2xl mx-auto mb-10 leading-relaxed">
@@ -49,23 +61,6 @@ const HeroSection = ({ onLogin, onSignUp }) => {
                 Sign In to Vault
               </Button>
             </div>
-          </motion.div>
-
-          {
-    /* Hero visual */
-  }
-          <motion.div
-    initial={{ opacity: 0, y: 40 }}
-    animate={{ opacity: 1, y: 0 }}
-    transition={{ duration: 0.8, delay: 0.4 }}
-    className="mt-16 relative"
-  >
-            <div className="absolute inset-0 bg-gradient-to-t from-background via-transparent to-transparent z-10 pointer-events-none" />
-            <img
-    src={heroVisual}
-    alt="DropVault AI Knowledge Graph"
-    className="w-full max-w-3xl mx-auto rounded-2xl shadow-2xl"
-  />
           </motion.div>
         </div>
       </div>

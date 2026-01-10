@@ -7,7 +7,6 @@ import SolutionSection from "./SolutionSection";
 import HowItWorksSection from "./HowItWorksSection";
 import WhatYouCanSaveSection from "./WhatYouCanSaveSection";
 import ComparisonSection from "./ComparisonSection";
-import PrivacySection from "./PrivacySection";
 import BuiltForSection from "./BuiltForSection";
 import FinalCTASection from "./FinalCTASection";
 import Footer from "./Footer";
@@ -35,7 +34,6 @@ const LandingPage = () => {
         <HowItWorksSection />
         <WhatYouCanSaveSection />
         <ComparisonSection />
-        <PrivacySection />
         <BuiltForSection />
         <FinalCTASection onLogin={() => openAuthModal("signup")} />
       </main>

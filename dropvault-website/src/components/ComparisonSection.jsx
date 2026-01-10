@@ -4,8 +4,7 @@ const comparisons = [
   { traditional: "Manual folder organization", dropvault: "Automatic AI organization" },
   { traditional: "Keyword-based search", dropvault: "Meaning-based semantic search" },
   { traditional: "Complex setup required", dropvault: "Zero learning curve" },
-  { traditional: "Templates and structures", dropvault: "Freeform knowledge capture" },
-  { traditional: "Information silos", dropvault: "Connected knowledge graph" }
+  { traditional: "Templates and structures", dropvault: "Freeform knowledge capture" }
 ];
 const ComparisonSection = () => {
   return <section className="py-24 bg-muted/30">
