@@ -26,14 +26,19 @@ DropVault is a unified knowledge management system designed to capture, organize
 
 ## 🚀 Quick Start
 
+### ⚠️ Important: API Keys & Credentials
+This project requires a **Firebase project** for authentication and storage. **You must provide your own API keys and Client IDs.** These are not included in the repository for security reasons.
+1. Create a project at [Firebase Console](https://console.firebase.google.com/).
+2. Enable **Authentication** (Email/Password & Google) and **Firestore/Storage**.
+3. Register a **Web App** to get your configuration keys.
+
 ### Prerequisites
 - **Node.js** (v18+)
 - **Python** (v3.10+)
-- **Firebase Project** (for Auth & Storage)
+- **Firebase Project**
 
 ### 1. Configure Environment
-
-You need to set up your API keys before running the app.
+You need to paste your own Firebase configuration values into the `.env` files.
 
 1.  **Website:**
     ```bash
