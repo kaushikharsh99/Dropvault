@@ -228,42 +228,20 @@ const VaultList = ({ searchQuery = "", viewMode = "list", limit = 0, refreshTrig
       </div>
   );
 
-  const handleItemClick = async (item) => {
-      setSelectedItem(item); // Show immediate preview
-      try {
-          let url = `/api/items/${item.id}`;
-          if (user) url += `?userId=${user.uid}`;
-          const res = await fetch(url);
-          if (res.ok) {
-              const fullItem = await res.json();
-              setSelectedItem(fullItem); // Update with full content
-          }
-      } catch (e) {
-          console.error("Failed to fetch full item", e);
-      }
-  };
-
-  const handleItemClick = async (item) => {
-      setSelectedItem(item); // Show immediate preview
-      try {
-          let url = `/api/items/${item.id}`;
-          if (user) url += `?userId=${user.uid}`;
-          const res = await fetch(url);
-          if (res.ok) {
-              const fullItem = await res.json();
-              setSelectedItem(fullItem); // Update with full content
-          }
-      } catch (e) {
-          console.error("Failed to fetch full item", e);
-      }
-  };
-
   const SkeletonTile = () => (
+    <div className="bg-white rounded-4 border h-100 overflow-hidden d-flex flex-column animate-pulse" style={{ minHeight: "200px" }}>
+        <div className="flex-grow-1 bg-light d-flex align-items-center justify-content-center" style={{ minHeight: "140px" }}>
+            <div className="w-12 h-12 bg-gray-200 rounded-circle" />
+        </div>
+        <div className="p-3 border-top">
+            <div className="h-4 bg-gray-200 rounded w-3/4 mb-2" />
+            <div className="h-3 bg-gray-100 rounded w-1/2" />
+        </div>
+    </div>
+  );
 
   const GridItemCard = ({ item }) => {
       const youtubeId = (item.type === 'link' || item.type === 'article' || item.type === 'video') ? getYoutubeId(item.content || item.source_url) : null;
-      const isHeavyImage = item.type === "image" && item.file_size > 512000; // > 500KB
-
       return (
       <motion.div
         layout
@@ -272,21 +250,13 @@ const VaultList = ({ searchQuery = "", viewMode = "list", limit = 0, refreshTrig
         exit={{ opacity: 0, scale: 0.95 }}
         whileHover={{ y: -4, boxShadow: "0 8px 20px rgba(0,0,0,0.08)" }}
         whileTap={{ scale: 0.98 }}
-        onClick={() => handleItemClick(item)}
+        onClick={() => setSelectedItem(item)}
         className="bg-white rounded-4 border h-100 overflow-hidden cursor-pointer d-flex flex-column"
         style={{ minHeight: "200px" }}
       >
           <div className="flex-grow-1 bg-light d-flex align-items-center justify-content-center position-relative overflow-hidden" style={{ minHeight: "140px" }}>
               {item.type === "image" ? (
-                  isHeavyImage ? (
-                      <div className="d-flex flex-column align-items-center text-muted opacity-75">
-                          <ImageIcon size={32} className="mb-2" />
-                          <span className="small fw-bold">Click to View</span>
-                          <span style={{ fontSize: "0.6rem" }}>{(item.file_size / 1024 / 1024).toFixed(1)} MB</span>
-                      </div>
-                  ) : (
-                      <img src={item.file_path} alt="" className="w-100 h-100 object-fit-cover position-absolute" />
-                  )
+                  <img src={item.file_path} alt="" className="w-100 h-100 object-fit-cover position-absolute" />
               ) : youtubeId ? (
                    <div className="w-100 h-100 position-relative">
                         <img 
@@ -343,7 +313,7 @@ const VaultList = ({ searchQuery = "", viewMode = "list", limit = 0, refreshTrig
         whileHover={{ y: -2, boxShadow: "0 4px 12px rgba(0,0,0,0.05)" }}
         whileTap={{ scale: 0.98 }}
         className="bg-white rounded-3 border p-3 cursor-pointer d-flex align-items-center gap-3 transition-all"
-        onClick={() => handleItemClick(item)}
+        onClick={() => setSelectedItem(item)}
     >
         {youtubeId ? (
             <div className="rounded overflow-hidden flex-shrink-0 position-relative bg-black" style={{ width: "160px", aspectRatio: "16/9" }} onClick={(e) => e.stopPropagation()}>

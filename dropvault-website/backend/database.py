@@ -62,23 +62,16 @@ def get_all_items(user_id=None, limit=None, offset=None, item_type=None):
     conn.row_factory = sqlite3.Row
     c = conn.cursor()
     
-    # We exclude 'embedding' and 'clip_embedding' here because they're heavy and only needed for search calculations on the backend
     fields = "id, title, type, content, notes, file_path, created_at, tags, user_id"
-    
     query = f"SELECT {fields} FROM items WHERE user_id = ?"
     params = [user_id]
     
     if item_type and item_type != "ALL":
-        # Handle combined types like 'DOCS' (pdf + file)
         if item_type == "DOCS":
             query += " AND (type = 'pdf' OR type = 'file')"
         elif item_type == "LINKS":
             query += " AND (type = 'link' OR type = 'article')"
         elif item_type == "YOUTUBE":
-            # For YouTube, we check type='video' but usually they are stored as 'video' with youtube content
-            # The frontend filter logic uses a regex, but here we can filter by type='video' 
-            # and if we want specifically youtube we'd need content check. 
-            # For simplicity let's stick to the main types for now.
             query += " AND type = 'video'"
         else:
             query += " AND type = ?"
@@ -93,7 +86,12 @@ def get_all_items(user_id=None, limit=None, offset=None, item_type=None):
             query += " OFFSET ?"
             params.append(offset)
         
-    rows = c.fetchall()
+        c.execute(query, tuple(params))
+        rows = c.fetchall()
+    else:
+        conn.close()
+        return []
+        
     conn.close()
     
     # Truncate content for list view to prevent huge payloads
@@ -145,7 +143,6 @@ def update_item(item_id, title, content, tags, embedding=None, user_id=None):
     conn = sqlite3.connect(get_db_path())
     c = conn.cursor()
     
-    # Base query
     query = "UPDATE items SET title = ?, content = ?, tags = ?"
     params = [title, content, tags]
     
