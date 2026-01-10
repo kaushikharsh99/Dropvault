@@ -10,18 +10,6 @@ const HeroSection = ({ onLogin, onSignUp }) => {
       <div className="absolute inset-0 hero-glow" />
       
       {
-    /* Hero Visual Background (Merged & Faded) */
-  }
-      <div className="absolute inset-0 z-0 opacity-25 pointer-events-none select-none">
-        <img 
-          src={heroVisual} 
-          alt="Background Visual" 
-          className="w-full h-full object-cover filter blur-[1px] scale-105"
-        />
-        <div className="absolute inset-0 bg-gradient-to-b from-background/70 via-background/40 to-background" />
-      </div>
-
-      {
     /* Floating orbs */
   }
       <div className="absolute top-1/4 left-1/4 w-64 h-64 bg-primary/5 rounded-full blur-3xl animate-float" />
