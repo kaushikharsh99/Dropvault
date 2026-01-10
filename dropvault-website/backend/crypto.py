@@ -57,3 +57,35 @@ def decrypt_text(encrypted_text: str) -> str:
     except Exception:
         # Fallback: assume it was not encrypted yet
         return encrypted_text
+
+def encrypt_file(file_path):
+    """Encrypts a file in place."""
+    f = get_fernet()
+    if not f or not os.path.exists(file_path):
+        return
+    
+    try:
+        with open(file_path, "rb") as file:
+            file_data = file.read()
+        
+        encrypted_data = f.encrypt(file_data)
+        
+        with open(file_path, "wb") as file:
+            file.write(encrypted_data)
+    except Exception as e:
+        print(f"File encryption failed for {file_path}: {e}")
+
+def decrypt_file_content(file_path):
+    """Reads and decrypts a file, returning bytes."""
+    f = get_fernet()
+    if not f or not os.path.exists(file_path):
+        return None
+    
+    try:
+        with open(file_path, "rb") as file:
+            encrypted_data = file.read()
+        
+        return f.decrypt(encrypted_data)
+    except Exception as e:
+        print(f"File decryption failed for {file_path}: {e}")
+        return None

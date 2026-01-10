@@ -1,12 +1,12 @@
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, Response
 import shutil
 import os
 import uuid
 import json
 import re
+import mimetypes
 from datetime import datetime, timedelta
 import numpy as np
 import pdfplumber
@@ -15,8 +15,10 @@ from bs4 import BeautifulSoup
 import pytesseract
 import cv2
 from PIL import Image
+from io import BytesIO
 from .ai import generate_embedding, query_embedding, cosine_sim
 from .database import init_db, add_item, get_all_items, delete_item, update_item, get_item, get_all_items_with_embeddings
+from .crypto import encrypt_file, decrypt_file_content
 
 app = FastAPI()
 
@@ -35,15 +37,53 @@ init_db()
 # Static for uploads
 UPLOAD_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "uploads")
 os.makedirs(UPLOAD_DIR, exist_ok=True)
-app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
+# REMOVED: app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
+
+@app.get("/uploads/{file_path:path}")
+async def get_file(file_path: str):
+    full_path = os.path.join(UPLOAD_DIR, file_path)
+    
+    # Security check: prevent path traversal
+    if not os.path.abspath(full_path).startswith(os.path.abspath(UPLOAD_DIR)):
+        raise HTTPException(status_code=403, detail="Access denied")
+        
+    if not os.path.exists(full_path):
+        raise HTTPException(status_code=404, detail="File not found")
+
+    # Decrypt content
+    file_bytes = decrypt_file_content(full_path)
+    
+    if file_bytes is None:
+        # Fallback for unencrypted files (if migration missed something or legacy)
+        try:
+            with open(full_path, "rb") as f:
+                file_bytes = f.read()
+        except:
+             raise HTTPException(status_code=500, detail="Could not read file")
+
+    # Determine mime type
+    mime_type, _ = mimetypes.guess_type(full_path)
+    if not mime_type:
+        mime_type = "application/octet-stream"
+        
+    return Response(content=file_bytes, media_type=mime_type)
 
 def extract_text_from_image(path):
     print(f"Running OCR on: {path}")
     try:
-        # Load image
-        img = cv2.imread(path)
+        # Load image (Encrypted aware)
+        file_bytes = decrypt_file_content(path)
+        if file_bytes is None:
+            # Fallback for plain files
+            with open(path, "rb") as f:
+                file_bytes = f.read()
+                
+        # Convert bytes to numpy array
+        nparr = np.frombuffer(file_bytes, np.uint8)
+        img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+        
         if img is None:
-            print("OCR: Could not read image file.")
+            print("OCR: Could not decode image file.")
             return ""
         
         # Preprocessing for better OCR
@@ -67,7 +107,14 @@ def extract_text(file_path, type, content=None):
     if type == "pdf":
         text = ""
         try:
-            with pdfplumber.open(file_path) as pdf:
+            # Decrypt PDF to memory
+            file_bytes = decrypt_file_content(file_path)
+            if file_bytes is None:
+                # Fallback
+                with open(file_path, "rb") as f:
+                    file_bytes = f.read()
+            
+            with pdfplumber.open(BytesIO(file_bytes)) as pdf:
                 for page in pdf.pages:
                     extracted = page.extract_text()
                     if extracted:
@@ -176,6 +223,9 @@ async def upload_file(file: UploadFile = File(...), userId: str = Form(None)):
     
     with open(file_path, "wb") as buffer:
         shutil.copyfileobj(file.file, buffer)
+        
+    # Encrypt immediately after saving
+    encrypt_file(file_path)
     
     return {
         "success": True,
@@ -428,6 +478,13 @@ async def search(q: str, userId: str = None):
     
     results.sort(key=lambda x: x["score"], reverse=True)
     return results[:15]
+
+@app.get("/api/items/{item_id}")
+async def get_single_item(item_id: int, userId: str = None):
+    item = get_item(item_id, userId)
+    if not item:
+        raise HTTPException(status_code=404, detail="Item not found")
+    return item
 
 @app.put("/api/items/{item_id}")
 async def update_item_endpoint(
