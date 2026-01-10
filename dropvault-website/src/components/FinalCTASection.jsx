@@ -22,8 +22,8 @@ const FinalCTASection = ({ onLogin }) => {
     className="max-w-3xl mx-auto text-center"
   >
           <h2 className="text-4xl md:text-6xl font-bold text-foreground leading-tight mb-8">
-            Your brain should not feel like a{" "}
-            <span className="gradient-text">storage problem.</span>
+            This is not a note app.{" "}
+            <span className="gradient-text">It’s your second brain.</span>
           </h2>
 
           <p className="text-xl text-muted-foreground mb-10 max-w-xl mx-auto">

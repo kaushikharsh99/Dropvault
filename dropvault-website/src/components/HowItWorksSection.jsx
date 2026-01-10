@@ -1,84 +1,106 @@
 import { motion } from "framer-motion";
-import { Download, Brain, MessageSquareText } from "lucide-react";
+import { Download, Brain, MessageSquareText, ArrowDown } from "lucide-react";
+import TermTooltip from "./TermTooltip";
+
 const steps = [
   {
     icon: Download,
     title: "Drop Anything",
+    subtitle: "No structure required. Ever.",
     description: "Paste text, upload files, save links. No categorization needed.",
-    examples: ["\u{1F4DD} Meeting notes", "\u{1F517} Article bookmarks", "\u{1F4C4} PDF documents"]
+    examples: ["📝 Meeting notes", "🔗 Article bookmarks", "📄 PDF documents"]
   },
   {
     icon: Brain,
-    title: "Automatic Understanding",
+    title: "AI Understands",
+    subtitle: "It connects the dots for you.",
     description: "AI extracts meaning, creates tags, and builds connections.",
-    examples: ["\u{1F3F7}\uFE0F Smart tagging", "\u{1F517} Auto-linking", "\u{1F4CA} Topic extraction"]
+    examples: ["🏷️ Smart tagging", "🔗 Auto-linking", "📊 Topic extraction"]
   },
   {
     icon: MessageSquareText,
-    title: "AI Semantic Search",
+    title: "Find Instantly",
+    subtitle: "Find things even if you forgot the words.",
     description: "Search in plain English. Ask questions, get answers.",
     examples: ['"What did I save about React hooks?"', `"Notes from last week's meeting"`, '"Articles about productivity"']
   }
 ];
+
 const HowItWorksSection = () => {
-  return <section id="how-it-works" className="py-24 bg-muted/30">
+  return (
+    <section id="how-it-works" className="py-24 bg-background">
       <div className="container mx-auto px-6">
         <motion.div
-    initial={{ opacity: 0, y: 20 }}
-    whileInView={{ opacity: 1, y: 0 }}
-    viewport={{ once: true }}
-    transition={{ duration: 0.6 }}
-    className="text-center max-w-3xl mx-auto mb-16"
-  >
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.6 }}
+          className="text-center max-w-3xl mx-auto mb-20"
+        >
           <h2 className="text-3xl md:text-5xl font-bold text-foreground mb-6">
-            How It Works
+            The Flow
           </h2>
           <p className="text-lg text-muted-foreground">
-            Three simple steps to a perfectly organized knowledge base.
+            From chaos to clarity in three simple steps.
           </p>
         </motion.div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {steps.map((step, index) => <motion.div
-    key={step.title}
-    initial={{ opacity: 0, y: 30 }}
-    whileInView={{ opacity: 1, y: 0 }}
-    viewport={{ once: true }}
-    transition={{ duration: 0.6, delay: index * 0.15 }}
-    className="relative"
-  >
-              {
-    /* Connector line */
-  }
-              {index < steps.length - 1 && <div className="hidden lg:block absolute top-16 left-[60%] w-[80%] h-[2px] bg-gradient-to-r from-primary/20 to-transparent" />}
+        <div className="max-w-2xl mx-auto relative">
+          {/* Vertical Connecting Line */}
+          <div className="absolute top-0 left-8 md:left-1/2 bottom-0 w-1 bg-gradient-to-b from-primary/20 via-primary/50 to-primary/20 -translate-x-1/2 rounded-full" />
 
-              <div className="floating-card h-full">
-                {
-    /* Step number */
-  }
-                <div className="absolute -top-3 -left-3 w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-sm font-bold">
-                  {index + 1}
-                </div>
-
-                <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center mb-6">
+          <div className="space-y-16">
+            {steps.map((step, index) => (
+              <motion.div
+                key={step.title}
+                initial={{ opacity: 0, y: 50 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true, margin: "-100px" }}
+                transition={{ duration: 0.7, type: "spring", bounce: 0.4 }}
+                className="relative flex flex-col md:flex-row items-center md:even:flex-row-reverse gap-8"
+              >
+                {/* Icon Marker */}
+                <div className="absolute left-8 md:left-1/2 -translate-x-1/2 z-10 w-16 h-16 rounded-full bg-background border-4 border-primary flex items-center justify-center shadow-lg">
                   <step.icon className="w-8 h-8 text-primary" />
                 </div>
 
-                <h3 className="text-xl font-semibold text-foreground mb-3">{step.title}</h3>
-                <p className="text-muted-foreground mb-6">{step.description}</p>
+                {/* Content Card */}
+                <div className="w-full md:w-[calc(50%-40px)] ml-20 md:ml-0 p-6 glass-card rounded-2xl border border-primary/10 hover:border-primary/30 transition-all bg-card/50 backdrop-blur-sm">
+                  <h3 className="text-2xl font-bold text-foreground mb-1">
+                    {step.title === "AI Understands" ? (
+                      <TermTooltip term={step.title} explanation="Our local AI analyzes your content privately to generate tags and links." />
+                    ) : step.title === "Find Instantly" ? (
+                      <TermTooltip term={step.title} explanation="Semantic search understands the meaning behind your query, not just keywords." />
+                    ) : (
+                      step.title
+                    )}
+                  </h3>
+                  
+                  {/* Context Micro-Label */}
+                  <p className="text-xs font-semibold text-primary/80 uppercase tracking-wide mb-3">
+                    {step.subtitle}
+                  </p>
 
-                <div className="space-y-2">
-                  {step.examples.map((example, i) => <div
-    key={i}
-    className="text-sm px-3 py-2 rounded-lg bg-muted/50 text-muted-foreground"
-  >
-                      {example}
-                    </div>)}
+                  <p className="text-muted-foreground mb-6">{step.description}</p>
+                  
+                  <div className="flex flex-wrap gap-2">
+                    {step.examples.map((example, i) => (
+                      <span key={i} className="text-xs px-3 py-1.5 rounded-full bg-primary/10 text-primary font-medium">
+                        {example}
+                      </span>
+                    ))}
+                  </div>
                 </div>
-              </div>
-            </motion.div>)}
+
+                {/* Empty space for the other side of the timeline on desktop */}
+                <div className="hidden md:block w-[calc(50%-40px)]" />
+              </motion.div>
+            ))}
+          </div>
         </div>
       </div>
-    </section>;
+    </section>
+  );
 };
+
 export default HowItWorksSection;

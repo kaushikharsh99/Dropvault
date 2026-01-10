@@ -1,8 +1,12 @@
+import { useState } from 'react';
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Play } from "lucide-react";
 import heroVisual from "@/assets/hero-visual.png";
+
 const HeroSection = ({ onLogin, onSignUp }) => {
+  const [isHovered, setIsHovered] = useState(false);
+
   return <section className="relative min-h-screen flex items-center justify-center pt-16 overflow-hidden">
       {
     /* Background gradient */
@@ -42,9 +46,14 @@ const HeroSection = ({ onLogin, onSignUp }) => {
             </p>
 
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-              <Button variant="hero" size="xl" className="min-w-[220px]" onClick={onSignUp}>
-                Get Started for Free
-              </Button>
+              <div
+                onMouseEnter={() => setIsHovered(true)}
+                onMouseLeave={() => setIsHovered(false)}
+              >
+                <Button variant="hero" size="xl" className="min-w-[220px] transition-all duration-300" onClick={onSignUp}>
+                  {isHovered ? "Create Your Vault" : "Get Started for Free"}
+                </Button>
+              </div>
               <Button variant="heroOutline" size="xl" className="min-w-[220px]" onClick={onLogin}>
                 Sign In to Vault
               </Button>

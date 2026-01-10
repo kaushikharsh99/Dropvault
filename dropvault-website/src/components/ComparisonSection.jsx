@@ -1,12 +1,17 @@
+import { useState } from "react";
 import { motion } from "framer-motion";
 import { X, Check } from "lucide-react";
+
 const comparisons = [
   { traditional: "Manual folder organization", dropvault: "Automatic AI organization" },
   { traditional: "Keyword-based search", dropvault: "Meaning-based semantic search" },
   { traditional: "Complex setup required", dropvault: "Zero learning curve" },
   { traditional: "Templates and structures", dropvault: "Freeform knowledge capture" }
 ];
+
 const ComparisonSection = () => {
+  const [activeIndex, setActiveIndex] = useState(null);
+
   return <section className="py-24 bg-muted/30">
       <div className="container mx-auto px-6">
         <motion.div
@@ -31,7 +36,7 @@ const ComparisonSection = () => {
     transition={{ duration: 0.6 }}
     className="max-w-3xl mx-auto"
   >
-          <div className="glass-card rounded-2xl overflow-hidden">
+          <div className="glass-card rounded-2xl overflow-hidden shadow-sm">
             {
     /* Header */
   }
@@ -47,19 +52,26 @@ const ComparisonSection = () => {
             {
     /* Rows */
   }
-            {comparisons.map((row, index) => <div
-    key={index}
-    className="grid grid-cols-2 border-t border-border/50"
-  >
+            {comparisons.map((row, index) => (
+              <div
+                key={index}
+                onClick={() => setActiveIndex(index === activeIndex ? null : index)}
+                className={`grid grid-cols-2 border-t border-border/50 cursor-pointer transition-colors duration-200 ${
+                  activeIndex === index ? "bg-primary/5 shadow-inner" : "hover:bg-muted/30"
+                }`}
+              >
                 <div className="p-6 flex items-center gap-3 border-r border-border/50">
-                  <X className="w-5 h-5 text-destructive/70 flex-shrink-0" />
-                  <span className="text-sm text-muted-foreground">{row.traditional}</span>
+                  <X className={`w-5 h-5 flex-shrink-0 transition-colors ${activeIndex === index ? "text-destructive" : "text-destructive/70"}`} />
+                  <span className={`text-sm transition-colors ${activeIndex === index ? "text-foreground font-medium" : "text-muted-foreground"}`}>
+                    {row.traditional}
+                  </span>
                 </div>
-                <div className="p-6 flex items-center gap-3 bg-primary/[0.02]">
+                <div className={`p-6 flex items-center gap-3 transition-colors ${activeIndex === index ? "bg-primary/10" : "bg-primary/[0.02]"}`}>
                   <Check className="w-5 h-5 text-secondary flex-shrink-0" />
                   <span className="text-sm text-foreground font-medium">{row.dropvault}</span>
                 </div>
-              </div>)}
+              </div>
+            ))}
           </div>
         </motion.div>
       </div>
