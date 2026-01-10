@@ -4,7 +4,19 @@ set -e  # Exit immediately if a command exits with a non-zero status.
 
 echo "🚀 Starting DropVault Dependency Installation..."
 
-# --- 1. Website Frontend ---
+# --- 1. Environment Configuration ---
+echo "⚙️  Setting up environment files..."
+if [ ! -f "dropvault-website/.env" ]; then
+    cp dropvault-website/.env.example dropvault-website/.env
+    echo "✅ Created dropvault-website/.env (Remember to add your keys!)"
+fi
+
+if [ ! -f "dropvault-extension/.env" ]; then
+    cp dropvault-extension/.env.example dropvault-extension/.env
+    echo "✅ Created dropvault-extension/.env (Remember to add your keys!)"
+fi
+
+# --- 2. Website Frontend ---
 echo "------------------------------------------------"
 echo "📦 Installing Website Frontend Dependencies..."
 echo "------------------------------------------------"
