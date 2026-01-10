@@ -12,13 +12,13 @@ const HeroSection = ({ onLogin, onSignUp }) => {
       {
     /* Hero Visual Background (Merged & Faded) */
   }
-      <div className="absolute inset-0 z-0 opacity-10 pointer-events-none select-none">
+      <div className="absolute inset-0 z-0 opacity-25 pointer-events-none select-none">
         <img 
           src={heroVisual} 
           alt="Background Visual" 
-          className="w-full h-full object-cover filter blur-[2px] scale-105"
+          className="w-full h-full object-cover filter blur-[1px] scale-105"
         />
-        <div className="absolute inset-0 bg-gradient-to-b from-background/80 via-background/50 to-background" />
+        <div className="absolute inset-0 bg-gradient-to-b from-background/70 via-background/40 to-background" />
       </div>
 
       {
