@@ -262,6 +262,8 @@ const VaultList = ({ searchQuery = "", viewMode = "list", limit = 0, refreshTrig
 
   const GridItemCard = ({ item }) => {
       const youtubeId = (item.type === 'link' || item.type === 'article' || item.type === 'video') ? getYoutubeId(item.content || item.source_url) : null;
+      const isHeavyImage = item.type === "image" && item.file_size > 512000; // > 500KB
+
       return (
       <motion.div
         layout
@@ -276,7 +278,15 @@ const VaultList = ({ searchQuery = "", viewMode = "list", limit = 0, refreshTrig
       >
           <div className="flex-grow-1 bg-light d-flex align-items-center justify-content-center position-relative overflow-hidden" style={{ minHeight: "140px" }}>
               {item.type === "image" ? (
-                  <img src={item.file_path} alt="" className="w-100 h-100 object-fit-cover position-absolute" />
+                  isHeavyImage ? (
+                      <div className="d-flex flex-column align-items-center text-muted opacity-75">
+                          <ImageIcon size={32} className="mb-2" />
+                          <span className="small fw-bold">Click to View</span>
+                          <span style={{ fontSize: "0.6rem" }}>{(item.file_size / 1024 / 1024).toFixed(1)} MB</span>
+                      </div>
+                  ) : (
+                      <img src={item.file_path} alt="" className="w-100 h-100 object-fit-cover position-absolute" />
+                  )
               ) : youtubeId ? (
                    <div className="w-100 h-100 position-relative">
                         <img 

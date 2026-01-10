@@ -289,6 +289,23 @@ async def create_item(
 @app.get("/api/items")
 async def list_items(userId: str = None, limit: int = None, offset: int = None, type: str = None):
     items = get_all_items(userId, limit, offset, type)
+    
+    # Inject file_size for frontend performance optimization
+    for item in items:
+        item['file_size'] = 0
+        if item.get('file_path'):
+            try:
+                # file_path is like "/uploads/user/file.png"
+                # UPLOAD_DIR is absolute path to uploads folder
+                # We need to strip "/uploads" prefix to join correctly
+                rel_path = item['file_path'].replace('/uploads/', '', 1).lstrip('/')
+                full_path = os.path.join(UPLOAD_DIR, rel_path)
+                
+                if os.path.exists(full_path):
+                    item['file_size'] = os.path.getsize(full_path)
+            except Exception:
+                pass
+                
     return items
     
 def parse_search_intent(query):
