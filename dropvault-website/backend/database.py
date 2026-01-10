@@ -1,6 +1,7 @@
 import sqlite3
 import json
 import os
+from .crypto import encrypt_text, decrypt_text
 
 DB_NAME = "dropvault.db"
 
@@ -49,9 +50,15 @@ def get_db_path():
 def add_item(title, type, content, notes, file_path, embedding, tags="", user_id=None):
     conn = sqlite3.connect(get_db_path())
     c = conn.cursor()
+    
+    # Encrypt sensitive content
+    encrypted_content = encrypt_text(content) if content else ""
+    encrypted_notes = encrypt_text(notes) if notes else ""
+    
     embedding_json = json.dumps(embedding) if embedding else None
+    
     c.execute("INSERT INTO items (title, type, content, notes, file_path, embedding, tags, user_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-              (title, type, content, notes, file_path, embedding_json, tags, user_id))
+              (title, type, encrypted_content, encrypted_notes, file_path, embedding_json, tags, user_id))
     item_id = c.lastrowid
     conn.commit()
     conn.close()
@@ -100,7 +107,16 @@ def get_all_items(user_id=None, limit=None, offset=None, item_type=None):
         
     rows = c.fetchall()
     conn.close()
-    return [dict(row) for row in rows]
+    
+    # Decrypt content before returning
+    results = []
+    for row in rows:
+        item = dict(row)
+        item['content'] = decrypt_text(item['content'])
+        item['notes'] = decrypt_text(item['notes'])
+        results.append(item)
+        
+    return results
 
 def get_item(item_id, user_id=None):
     conn = sqlite3.connect(get_db_path())
@@ -113,7 +129,13 @@ def get_item(item_id, user_id=None):
         c.execute(f"SELECT {fields} FROM items WHERE id = ?", (item_id,))
     row = c.fetchone()
     conn.close()
-    return dict(row) if row else None
+    
+    if row:
+        item = dict(row)
+        item['content'] = decrypt_text(item['content'])
+        item['notes'] = decrypt_text(item['notes'])
+        return item
+    return None
 
 def delete_item(item_id, user_id=None):
     conn = sqlite3.connect(get_db_path())
@@ -135,15 +157,30 @@ def get_all_items_with_embeddings(user_id=None):
         return []
     rows = c.fetchall()
     conn.close()
-    return [dict(row) for row in rows]
+    
+    # NOTE: For search, we might NOT want to decrypt content if we are just comparing embeddings.
+    # But if the search results return snippets of content, we MUST decrypt.
+    # The 'search' endpoint uses this.
+    
+    results = []
+    for row in rows:
+        item = dict(row)
+        item['content'] = decrypt_text(item['content'])
+        item['notes'] = decrypt_text(item['notes'])
+        results.append(item)
+        
+    return results
 
 def update_item(item_id, title, content, tags, embedding=None, user_id=None):
     conn = sqlite3.connect(get_db_path())
     c = conn.cursor()
     
+    # Encrypt content
+    encrypted_content = encrypt_text(content) if content else ""
+    
     # Base query
     query = "UPDATE items SET title = ?, content = ?, tags = ?"
-    params = [title, content, tags]
+    params = [title, encrypted_content, tags]
     
     if embedding:
         query += ", embedding = ?"

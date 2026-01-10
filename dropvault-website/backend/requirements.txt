@@ -10,3 +10,5 @@ playwright
 pytesseract
 pillow
 opencv-python
+cryptography
+python-dotenv
