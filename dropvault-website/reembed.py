@@ -1,13 +1,22 @@
 import sqlite3
 import json
 import os
+import re
+from pathlib import Path
 from backend.ai import generate_embedding
 
-DB_PATH = "backend/dropvault.db"
+# Robust path handling
+BASE_DIR = Path(__file__).resolve().parent
+DB_PATH = BASE_DIR / "backend" / "dropvault.db"
+
+def clean_text(text):
+    if not text: return ""
+    # Remove excessive whitespace/newlines
+    return " ".join(text.split())[:8000]
 
 def reembed_all():
-    if not os.path.exists(DB_PATH):
-        print("DB not found!")
+    if not DB_PATH.exists():
+        print(f"DB not found at {DB_PATH}")
         return
 
     conn = sqlite3.connect(DB_PATH)
@@ -26,12 +35,14 @@ def reembed_all():
         content = row['content'] or ""
         tags = row['tags'] or ""
         
-        # Construct text to embed (same logic as main.py)
-        text_to_embed = f"{title} "
+        # Construct text to embed with hygiene
+        text_parts = [title]
         if tags:
-            text_to_embed += f"Tags: {tags} "
+            text_parts.append(f"Tags: {tags}")
         if content:
-            text_to_embed += content[:8000]
+            text_parts.append(clean_text(content))
+            
+        text_to_embed = " ".join(text_parts)
             
         print(f"Processing Item {item_id}: {title[:30]}...")
         vector = generate_embedding(text_to_embed)

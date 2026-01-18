@@ -17,7 +17,7 @@ import cv2
 from PIL import Image
 from io import BytesIO
 from .ai import generate_embedding, query_embedding, cosine_sim
-from .database import init_db, add_item, get_all_items, delete_item, update_item, get_item, get_all_items_with_embeddings
+from .database import init_db, add_item, get_all_items, delete_item, update_item, get_item, get_all_items_with_embeddings, get_all_tags
 from .crypto import encrypt_file, decrypt_file_content
 
 app = FastAPI()
@@ -433,8 +433,6 @@ def parse_search_intent(query):
 
     return query.strip(), start_date, end_date, type_filter, ", ".join(filter_desc)
 
-    return query.strip(), start_date, end_date, type_filter, ", ".join(filter_desc)
-
 @app.get("/api/search")
 async def search(q: str, userId: str = None):
     cleaned_q, start_date, end_date, type_filter, filter_desc = parse_search_intent(q)
@@ -479,12 +477,21 @@ async def search(q: str, userId: str = None):
 
         if cleaned_q and item['tags']:
             item_tags = [t.strip().lower() for t in item['tags'].split(',')]
+            # 1. Exact Tag Match (Highest Priority)
             if cleaned_q in item_tags:
-                score = max(score, 0.85)
-                explanation += f" Exact tag match."
+                score = max(score, 2.5) 
+                explanation = f"Exact tag match." 
+            # 2. Query matches start of a tag (High Priority)
+            elif any(t.startswith(cleaned_q) for t in item_tags):
+                score = max(score, 1.8)
+                explanation = f"Tag starts with query."
+            # 3. Query contained in a tag (Medium-High Priority)
+            elif any(cleaned_q in t for t in item_tags):
+                score = max(score, 1.2)
+                explanation = f"Tag contains query."
             elif any(word in item_tags for word in cleaned_q.split()):
-                score += 0.15
-                explanation += " Partial tag match."
+                score += 0.2
+                explanation += " Word in tag match."
 
         if cleaned_q and item['title'] and cleaned_q in item['title'].lower():
             score = max(score, 0.9)
@@ -502,6 +509,12 @@ async def get_single_item(item_id: int, userId: str = None):
     if not item:
         raise HTTPException(status_code=404, detail="Item not found")
     return item
+
+@app.post("/api/tags")
+async def get_tags(userId: str = None):
+    if not userId:
+        return []
+    return get_all_tags(userId)
 
 @app.put("/api/items/{item_id}")
 async def update_item_endpoint(
@@ -534,3 +547,9 @@ async def delete_item_endpoint(item_id: int, userId: str = None):
     
     delete_item(item_id, userId)
     return {"status": "deleted", "id": item_id}
+
+@app.get("/api/tags")
+async def get_tags(userId: str = None):
+    if not userId:
+        return []
+    return get_all_tags(userId)

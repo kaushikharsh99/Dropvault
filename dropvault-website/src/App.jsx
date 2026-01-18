@@ -7,16 +7,38 @@ import { Search, LogOut, User, ArrowRight, ArrowLeft, Library, Box } from "lucid
 import UniversalDropZone from "./components/UniversalDropZone";
 import VaultList from "./components/VaultList";
 import LandingPage from "./components/LandingPage";
+import RecentTags from "./components/RecentTags";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Toaster } from "@/components/ui/toaster";
 
 const Dashboard = () => {
   const { user, logout } = useAuth();
   const [searchQuery, setSearchQuery] = useState("");
+  const [activeTags, setActiveTags] = useState([]);
   const [viewMode, setViewMode] = useState("dashboard"); // 'dashboard' | 'all_items'
   const [refreshTrigger, setRefreshTrigger] = useState(0);
 
   const handleRefresh = () => setRefreshTrigger(prev => prev + 1);
+
+  const effectiveSearchQuery = activeTags.length > 0 ? activeTags.join(", ") : searchQuery;
+
+  const handleTagToggle = (tag) => {
+      if (Array.isArray(tag)) {
+          // Clear all
+          setActiveTags([]);
+          return;
+      }
+      
+      setActiveTags(prev => {
+          if (prev.includes(tag)) {
+              return prev.filter(t => t !== tag);
+          } else {
+              return [...prev, tag];
+          }
+      });
+      setViewMode("all_items");
+      setSearchQuery(""); // Clear text search when tagging
+  };
 
   return (
     <div className="min-vh-100 bg-light">
@@ -25,7 +47,7 @@ const Dashboard = () => {
           <Navbar.Brand 
             href="#" 
             className="fw-bold fs-4 d-flex align-items-center gap-2 text-primary" 
-            onClick={() => setViewMode("dashboard")}
+            onClick={() => { setViewMode("dashboard"); setActiveTags([]); setSearchQuery(""); }}
           >
             <Box size={28} strokeWidth={2} />
             DropVault
@@ -40,6 +62,7 @@ const Dashboard = () => {
                     value={searchQuery}
                     onChange={(e) => {
                         setSearchQuery(e.target.value);
+                        setActiveTags([]);
                         if (e.target.value && viewMode !== "all_items") {
                             setViewMode("all_items");
                         }
@@ -81,6 +104,12 @@ const Dashboard = () => {
                         </Col>
                     </Row>
 
+                    {/* RECENT TAGS SECTION */}
+                    <RecentTags 
+                        selectedTags={activeTags} 
+                        onTagSelect={handleTagToggle} 
+                    />
+
                     {/* RECENT ITEMS SECTION */}
                     <div>
                         <div className="d-flex align-items-center justify-content-between mb-3 px-1">
@@ -107,19 +136,27 @@ const Dashboard = () => {
                     exit={{ opacity: 0, x: -20 }}
                     transition={{ duration: 0.3 }}
                 >
-                    {/* ALL ITEMS LIBRARY */}
+                    {/* TAGS IN LIBRARY VIEW */}
+                    <RecentTags 
+                        selectedTags={activeTags} 
+                        onTagSelect={handleTagToggle} 
+                    />
+
+                    {/* ALL ITEMS LIBRARY HEADER */}
                     <div className="mb-4 d-flex align-items-center gap-2">
                         <Button 
                             variant="ghost" 
                             className="text-muted p-0 me-2"
-                            onClick={() => setViewMode("dashboard")}
+                            onClick={() => { setViewMode("dashboard"); setActiveTags([]); }}
                         >
                             <ArrowLeft size={24} />
                         </Button>
-                        <h4 className="mb-0 fw-bold">Full Library</h4>
+                        <h4 className="mb-0 fw-bold">
+                            {activeTags.length > 0 ? `Tagged: ${activeTags.join(", ")}` : "Full Library"}
+                        </h4>
                     </div>
                     
-                    <VaultList searchQuery={searchQuery} viewMode="grouped" refreshTrigger={refreshTrigger} />
+                    <VaultList searchQuery={effectiveSearchQuery} viewMode="grouped" refreshTrigger={refreshTrigger} />
                 </motion.div>
             )}
         </AnimatePresence>

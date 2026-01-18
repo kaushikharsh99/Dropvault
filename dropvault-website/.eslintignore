@@ -1,0 +1,3 @@
+backend/venv/
+dist/
+node_modules/

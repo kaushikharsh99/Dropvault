@@ -32,14 +32,14 @@
   "commands": {
     "run-capture": {
       "suggested_key": {
-        "default": "Ctrl+Shift+7",
-        "mac": "Command+Shift+7"
+        "default": "Ctrl+Shift+S",
+        "mac": "Command+Shift+S"
       },
       "description": "Instantly save current page"
     }
   },
   "oauth2": {
-    "client_id": "692304557978-gti3ueeh4gjhkb1b55v8goo5ajs5044m.apps.googleusercontent.com",
+    "client_id": "CLIENT_ID_PLACEHOLDER",
     "scopes": [
       "openid",
       "email",

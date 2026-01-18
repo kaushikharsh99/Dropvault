@@ -160,3 +160,27 @@ def update_item(item_id, title, content, tags, embedding=None, user_id=None):
     c.execute(query, tuple(params))
     conn.commit()
     conn.close()
+
+def get_all_tags(user_id):
+    conn = sqlite3.connect(get_db_path())
+    conn.row_factory = sqlite3.Row
+    c = conn.cursor()
+    c.execute("SELECT tags FROM items WHERE user_id = ? AND tags IS NOT NULL AND tags != ''", (user_id,))
+    rows = c.fetchall()
+    conn.close()
+
+    tag_counts = {}
+    for row in rows:
+        tags_str = row['tags']
+        if tags_str:
+            for tag in tags_str.split(','):
+                cleaned_tag = tag.strip()
+                if cleaned_tag:
+                    tag_counts[cleaned_tag] = tag_counts.get(cleaned_tag, 0) + 1
+    
+    sorted_tags = sorted(
+        [{"text": tag, "value": count} for tag, count in tag_counts.items()], 
+        key=lambda x: x['value'], 
+        reverse=True
+    )
+    return sorted_tags

@@ -32,6 +32,42 @@ const VaultList = ({ searchQuery = "", viewMode = "list", limit = 0, refreshTrig
     return (match && match[2].length === 11) ? match[2] : null;
   };
 
+  const isInstagramReel = (url) => {
+    return url && (url.includes("instagram.com/reel") || url.includes("instagram.com/p/"));
+  };
+
+  const InstagramEmbed = ({ url }) => {
+    useEffect(() => {
+        // Remove any existing script to force reload or just append if missing
+        // Instagram's script is smart enough usually, but sometimes needs a re-process call
+        if (!document.querySelector('script[src="//www.instagram.com/embed.js"]')) {
+            const script = document.createElement("script");
+            script.src = "//www.instagram.com/embed.js";
+            script.async = true;
+            document.body.appendChild(script);
+        } else {
+             if (window.instgrm) {
+                 window.instgrm.Embeds.process();
+             }
+        }
+    }, [url]);
+
+    // Clean URL for embed (remove query params for cleaner embed if needed, but perma link usually handles it)
+    const cleanUrl = url.split('?')[0];
+
+    return (
+        <div className="d-flex justify-content-center my-3">
+            <blockquote 
+                className="instagram-media" 
+                data-instgrm-permalink={cleanUrl}
+                data-instgrm-version="14" 
+                style={{ background: "#FFF", border: "0", borderRadius: "3px", boxShadow: "0 0 1px 0 rgba(0,0,0,0.5),0 1px 10px 0 rgba(0,0,0,0.15)", margin: "1px", maxWidth: "540px", minWidth: "326px", padding: "0", width: "99.375%", width: "-webkit-calc(100% - 2px)", width: "calc(100% - 2px)" }}
+            >
+            </blockquote>
+        </div>
+    );
+  };
+
   const formatRelativeTime = (timestamp) => {
     if (!timestamp) return "";
     const date = new Date(timestamp);
@@ -288,7 +324,7 @@ const VaultList = ({ searchQuery = "", viewMode = "list", limit = 0, refreshTrig
               {item.tags && (
                   <div className="d-flex flex-wrap gap-1 mt-2">
                       {item.tags.split(',').slice(0, 3).map((tag, i) => (
-                          <Badge key={i} bg="light" text="dark" className="border fw-normal" style={{ fontSize: "0.65rem" }}>
+                          <Badge key={i} bg="light" className="border fw-normal" style={{ fontSize: "0.65rem", backgroundColor: '#dcfce7 !important', color: '#166534' }}>
                               {tag.trim()}
                           </Badge>
                       ))}
@@ -341,7 +377,7 @@ const VaultList = ({ searchQuery = "", viewMode = "list", limit = 0, refreshTrig
                     <>
                         <span>•</span>
                         {item.tags.split(',').map((tag, i) => (
-                            <Badge key={i} bg="secondary" className="fw-normal" style={{ fontSize: "0.7rem", opacity: 0.8 }}>
+                            <Badge key={i} bg="light" className="fw-normal" style={{ fontSize: "0.7rem", opacity: 1, backgroundColor: '#dcfce7 !important', color: '#166534' }}>
                                 {tag.trim()}
                             </Badge>
                         ))}
@@ -492,7 +528,7 @@ const VaultList = ({ searchQuery = "", viewMode = "list", limit = 0, refreshTrig
                                             <>
                                                 <span>•</span>
                                                 {selectedItem.tags.split(',').map((tag, i) => (
-                                                    <Badge key={i} bg="secondary" className="fw-normal" style={{ opacity: 0.8 }}>{tag.trim()}</Badge>
+                                                    <Badge key={i} bg="light" className="fw-normal" style={{ opacity: 1, backgroundColor: '#dcfce7 !important', color: '#166534' }}>{tag.trim()}</Badge>
                                                 ))}
                                             </>
                                         )}
@@ -513,9 +549,27 @@ const VaultList = ({ searchQuery = "", viewMode = "list", limit = 0, refreshTrig
                                             )}
                                         </div>
                                     )}
+                                    {/* Instagram Embed Logic */}
+                                    {isInstagramReel(selectedItem.content || selectedItem.source_url) && (
+                                        <div className="mb-4">
+                                            <InstagramEmbed url={selectedItem.content || selectedItem.source_url} />
+                                            <Button 
+                                                href={selectedItem.content || selectedItem.source_url} 
+                                                target="_blank" 
+                                                variant="outline-primary" 
+                                                className="w-100 d-flex align-items-center justify-content-center gap-2 mt-2"
+                                            >
+                                                <ExternalLink size={18} /> Open on Instagram
+                                            </Button>
+                                        </div>
+                                    )}
+
                                     {/* Consolidated Video/Link Logic for YouTube */}
                                     {(() => {
-                                        const youtubeId = getYoutubeId(selectedItem.content || selectedItem.source_url);
+                                        const url = selectedItem.content || selectedItem.source_url;
+                                        if (isInstagramReel(url)) return null; // Skip if handled above
+
+                                        const youtubeId = getYoutubeId(url);
                                         if (youtubeId) {
                                             return (
                                                 <div className="mb-4">
@@ -567,7 +621,7 @@ const VaultList = ({ searchQuery = "", viewMode = "list", limit = 0, refreshTrig
                                         <p className="mb-0 text-dark" style={{ whiteSpace: "pre-wrap", fontSize: "1.1rem", lineHeight: "1.7" }}>{selectedItem.content}</p>
                                     )}
                                     {/* Update Link Logic to skip if YouTube (handled above) */}
-                                    {((selectedItem.type === "link" || selectedItem.type === "article") && !getYoutubeId(selectedItem.content || selectedItem.source_url)) && (
+                                    {((selectedItem.type === "link" || selectedItem.type === "article") && !getYoutubeId(selectedItem.content || selectedItem.source_url) && !isInstagramReel(selectedItem.content || selectedItem.source_url)) && (
                                         <div>
                                             <p className="mb-4 text-muted">{selectedItem.content}</p>
                                             <Button href={selectedItem.content} target="_blank" variant="primary" className="d-flex align-items-center gap-2">

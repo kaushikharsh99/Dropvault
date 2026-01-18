@@ -1,4 +1,6 @@
 (function() {
+  let shadowRoot = null;
+
   function inject() {
     if (document.getElementById('dropvault-root')) return;
     
@@ -15,13 +17,20 @@
     target.appendChild(host);
 
     const shadow = host.attachShadow({ mode: 'open' });
+    shadowRoot = shadow;
 
     const style = document.createElement('style');
     style.textContent = `
+      @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap');
+
+      * {
+        box-sizing: border-box;
+      }
+
       #dropvault-fab-container {
         position: fixed;
         bottom: 32px;
-        right: 12px;
+        right: 0px;
         display: flex;
         flex-direction: column-reverse;
         align-items: center;
@@ -29,18 +38,19 @@
         font-family: 'Inter', system-ui, -apple-system, sans-serif;
         pointer-events: auto;
         transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+        z-index: 100;
       }
 
       #dropvault-fab-container.side-hidden {
-        transform: translateX(52px); 
+        transform: translateX(48px); 
       }
 
       .dropvault-fab-trigger {
         width: 56px;
         height: 56px;
         border-radius: 50%;
-        background: linear-gradient(135deg, #4f46e5, #818cf8) !important;
-        box-shadow: 0 4px 14px rgba(0, 0, 0, 0.3);
+        background: hsl(234, 89%, 72%) !important;
+        box-shadow: 0 4px 14px rgba(79, 70, 229, 0.25);
         cursor: pointer;
         display: flex;
         align-items: center;
@@ -50,12 +60,14 @@
         border: none !important;
         padding: 0;
         z-index: 2;
-        opacity: 0.85;
+        opacity: 0.95;
       }
 
       #dropvault-fab-container:hover .dropvault-fab-trigger {
         opacity: 1;
-        box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
+        background: hsl(234, 89%, 68%) !important;
+        box-shadow: 0 6px 20px rgba(79, 70, 229, 0.35);
+        transform: scale(1.05);
       }
 
       .dropvault-fab-menu {
@@ -80,7 +92,7 @@
         border-radius: 50%;
         background: white !important;
         border: 1px solid #e5e7eb !important;
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
         cursor: pointer;
         display: flex;
         align-items: center;
@@ -93,8 +105,8 @@
 
       .dropvault-fab-item:hover {
         background: #f9fafb !important;
-        color: #4f46e5;
-        border-color: #4f46e5 !important;
+        color: hsl(234, 89%, 65%);
+        border-color: hsl(234, 89%, 65%) !important;
       }
 
       .dropvault-fab-item::before {
@@ -131,9 +143,168 @@
         height: 28px;
         fill: white;
       }
+
+      /* Modal Styles */
+      .dv-modal-overlay {
+        position: fixed;
+        inset: 0;
+        background: rgba(0,0,0,0.4);
+        backdrop-filter: blur(8px);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 1000;
+        opacity: 0;
+        visibility: hidden;
+        transition: all 0.2s ease-in-out;
+      }
+      
+      .dv-modal-overlay.open {
+        opacity: 1;
+        visibility: visible;
+      }
+      
+      .dv-modal {
+        background: white;
+        border-radius: 20px;
+        width: 90%;
+        max-width: 420px;
+        padding: 28px;
+        box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.15);
+        transform: scale(0.95);
+        transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+        font-family: 'Inter', system-ui, -apple-system, sans-serif;
+        border: 1px solid rgba(229, 231, 235, 0.5);
+      }
+      
+      .dv-modal-overlay.open .dv-modal {
+        transform: scale(1);
+      }
+      
+      .dv-modal-header {
+        margin-bottom: 24px;
+      }
+      
+      .dv-modal-title {
+        font-size: 20px;
+        font-weight: 600;
+        color: #111827;
+        margin: 0;
+        letter-spacing: -0.025em;
+      }
+      
+      .dv-form-group {
+        margin-bottom: 20px;
+      }
+      
+      .dv-label {
+        display: block;
+        font-size: 13px;
+        font-weight: 600;
+        color: #4b5563;
+        margin-bottom: 8px;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+      }
+      
+      .dv-input, .dv-textarea {
+        width: 100%;
+        padding: 12px 14px;
+        border-radius: 12px;
+        border: 1.5px solid #e5e7eb;
+        font-size: 14px;
+        outline: none;
+        transition: all 0.2s;
+        box-sizing: border-box;
+        color: #1f2937;
+        font-family: inherit;
+        background: #fdfdfd;
+      }
+      
+      .dv-input:focus, .dv-textarea:focus {
+        border-color: hsl(234, 89%, 72%);
+        background: white;
+        box-shadow: 0 0 0 4px hsla(234, 89%, 72%, 0.15);
+      }
+      
+      .dv-textarea {
+        min-height: 100px;
+        resize: vertical;
+      }
+      
+      .dv-actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 12px;
+        margin-top: 28px;
+      }
+      
+      .dv-btn {
+        padding: 11px 22px;
+        border-radius: 12px;
+        font-size: 14px;
+        font-weight: 600;
+        cursor: pointer;
+        border: none;
+        transition: all 0.2s ease;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      
+      .dv-btn-cancel {
+        background: transparent;
+        color: #6b7280;
+        border: 1.5px solid #e5e7eb;
+      }
+      
+      .dv-btn-cancel:hover {
+        background: #f9fafb;
+        color: #111827;
+        border-color: #d1d5db;
+      }
+      
+      .dv-btn-save {
+        background: hsl(234, 89%, 72%);
+        color: white;
+        box-shadow: 0 4px 10px hsla(234, 89%, 72%, 0.3);
+      }
+      
+      .dv-btn-save:hover {
+        background: hsl(234, 89%, 68%);
+        transform: translateY(-2px);
+        box-shadow: 0 6px 15px hsla(234, 89%, 72%, 0.4);
+      }
+      
+      .dv-btn-save:active {
+        transform: translateY(0);
+      }
+
+      .spinner {
+        width: 16px;
+        height: 16px;
+        border: 2px solid rgba(255,255,255,0.3);
+        border-radius: 50%;
+        border-top-color: white;
+        animation: spin 1s linear infinite;
+        display: none;
+      }
+
+      .dv-btn-save.loading .spinner {
+        display: block;
+      }
+      
+      .dv-btn-save.loading span {
+        opacity: 0.7;
+      }
+
+      @keyframes spin {
+        to { transform: rotate(360deg); }
+      }
     `;
     shadow.appendChild(style);
 
+    // --- FAB Construction ---
     const container = document.createElement('div');
     container.id = 'dropvault-fab-container';
     container.className = 'side-hidden';
@@ -189,7 +360,6 @@
     container.onmouseenter = () => {
         clearTimeout(hideTimeout);
         container.classList.remove('side-hidden');
-        // Auto-expand on hover
         menu.classList.add('active');
         trigger.classList.add('active');
         trigger.style.transform = 'rotate(45deg)';
@@ -199,7 +369,6 @@
         resetHideTimer();
     };
 
-    // Keep click as a manual toggle fallback
     trigger.onclick = (e) => {
       e.stopPropagation();
       const isActive = trigger.classList.toggle('active');
@@ -212,22 +381,102 @@
     container.appendChild(trigger);
     shadow.appendChild(container);
 
-    resetHideTimer();
+    // --- Modal Construction ---
+    const modalOverlay = document.createElement('div');
+    modalOverlay.className = 'dv-modal-overlay';
+    
+    const modal = document.createElement('div');
+    modal.className = 'dv-modal';
+    
+    modal.innerHTML = `
+      <div class="dv-modal-header">
+        <h3 class="dv-modal-title">Save to DropVault</h3>
+      </div>
+      <div class="dv-form-group">
+        <label class="dv-label">Title</label>
+        <input type="text" id="dv-input-title" class="dv-input" placeholder="Page Title">
+      </div>
+      <div class="dv-form-group">
+        <label class="dv-label">Tags</label>
+        <input type="text" id="dv-input-tags" class="dv-input" placeholder="research, design, inspiration">
+      </div>
+      <div class="dv-form-group">
+        <label class="dv-label">Notes</label>
+        <textarea id="dv-input-notes" class="dv-textarea" placeholder="Add some context..."></textarea>
+      </div>
+      <div class="dv-actions">
+        <button id="dv-btn-cancel" class="dv-btn dv-btn-cancel">Cancel</button>
+        <button id="dv-btn-save" class="dv-btn dv-btn-save">
+          <div class="spinner"></div>
+          <span>Save Item</span>
+        </button>
+      </div>
+    `;
 
-    function handleAction(id) {
-      if (id === 'dv-action-vault') {
-        window.open('http://localhost:5173', '_blank');
-      } else if (id === 'dv-action-search') {
-        window.open('http://localhost:5173', '_blank');
-      } else if (id === 'dv-action-capture') {
-        chrome.runtime.sendMessage({ action: "trigger-capture" });
-      }
-      
-      trigger.classList.remove('active');
-      menu.classList.toggle('active');
-      trigger.style.transform = 'rotate(0deg)';
-      resetHideTimer();
+    modalOverlay.appendChild(modal);
+    shadow.appendChild(modalOverlay);
+    
+    // Modal Event Listeners
+    const cancelBtn = modal.querySelector('#dv-btn-cancel');
+    const saveBtn = modal.querySelector('#dv-btn-save');
+    const titleInput = modal.querySelector('#dv-input-title');
+    const tagsInput = modal.querySelector('#dv-input-tags');
+    const notesInput = modal.querySelector('#dv-input-notes');
+
+    function closeModal() {
+      modalOverlay.classList.remove('open');
+      saveBtn.classList.remove('loading');
+      saveBtn.disabled = false;
     }
+
+    cancelBtn.onclick = closeModal;
+    modalOverlay.onclick = (e) => {
+      if (e.target === modalOverlay) closeModal();
+    };
+
+    saveBtn.onclick = () => {
+      const title = titleInput.value;
+      const tags = tagsInput.value.split(',').map(t => t.trim()).filter(Boolean);
+      const notes = notesInput.value;
+
+      saveBtn.classList.add('loading');
+      saveBtn.disabled = true;
+
+      chrome.runtime.sendMessage({ 
+        action: "trigger-capture-with-data",
+        data: { title, tags, notes }
+      }, (response) => {
+        closeModal();
+      });
+    };
+    
+    window.openDropVaultModal = () => {
+      titleInput.value = document.title;
+      tagsInput.value = '';
+      notesInput.value = '';
+      modalOverlay.classList.add('open');
+      setTimeout(() => titleInput.focus(), 100);
+    };
+
+    resetHideTimer();
+  }
+
+  function handleAction(id) {
+    if (id === 'dv-action-vault') {
+      window.open('http://localhost:5173', '_blank');
+    } else if (id === 'dv-action-search') {
+      window.open('http://localhost:5173', '_blank');
+    } else if (id === 'dv-action-capture') {
+      if (window.openDropVaultModal) window.openDropVaultModal();
+    }
+    
+    const container = shadowRoot.getElementById('dropvault-fab-container');
+    const trigger = container.querySelector('.dropvault-fab-trigger');
+    const menu = container.querySelector('.dropvault-fab-menu');
+    
+    trigger.classList.remove('active');
+    menu.classList.remove('active');
+    trigger.style.transform = 'rotate(0deg)';
   }
 
   if (document.readyState === 'loading') {
@@ -240,5 +489,12 @@
     if (!document.getElementById('dropvault-root')) inject();
   });
   observer.observe(document.documentElement, { childList: true, subtree: true });
+
+  chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+    if (request.action === "open-modal") {
+      inject();
+      if (window.openDropVaultModal) window.openDropVaultModal();
+    }
+  });
 
 })();

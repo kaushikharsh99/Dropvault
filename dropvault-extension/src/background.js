@@ -33,7 +33,8 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
   if (info.menuItemId === "open-vault") {
     chrome.tabs.create({ url: VAULT_URL });
   } else if (info.menuItemId === "save-page") {
-    handleSaveCommand(tab);
+    // Open modal instead of direct save
+    chrome.tabs.sendMessage(tab.id, { action: "open-modal" });
   } else if (info.menuItemId === "save-image") {
     handleDownloadAndSave(info.srcUrl, tab, "image");
   } else if (info.menuItemId === "save-link-as-file") {
@@ -44,7 +45,22 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
 // Handle Messages
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.action === "trigger-capture") {
+    // Legacy support or fallback
     handleSaveCommand(sender.tab);
+  } else if (request.action === "trigger-capture-with-data") {
+    handleSaveCommand(sender.tab, request.data);
+    sendResponse({ status: "started" });
+  }
+});
+
+// Handle Commands (Keyboard Shortcuts)
+chrome.commands.onCommand.addListener((command) => {
+  if (command === "run-capture") {
+    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+      if (tabs.length > 0) {
+        chrome.tabs.sendMessage(tabs[0].id, { action: "open-modal" });
+      }
+    });
   }
 });
 
@@ -115,7 +131,7 @@ async function handleDownloadAndSave(url, tab, type) {
     }
 }
 
-async function handleSaveCommand(tab) {
+async function handleSaveCommand(tab, metadata = {}) {
     const storage = await chrome.storage.local.get(['userId']);
     const userId = storage.userId;
 
@@ -158,10 +174,22 @@ async function handleSaveCommand(tab) {
 
     const payload = new FormData();
     payload.append("userId", userId);
-    payload.append("title", tab.title);
+    
+    // Use metadata from modal or fallback to tab data
+    payload.append("title", metadata.title || tab.title);
     payload.append("type", "link");
     payload.append("content", finalUrl);
-    if (screenshotUrl) payload.append("notes", `![Screenshot](${screenshotUrl})`);
+    
+    let notes = metadata.notes || "";
+    if (screenshotUrl) {
+        notes += `\n\n![Screenshot](${screenshotUrl})`;
+    }
+    payload.append("notes", notes);
+
+    // Tags handling
+    if (metadata.tags && Array.isArray(metadata.tags)) {
+        metadata.tags.forEach(tag => payload.append("tags", tag));
+    }
 
     const res = await fetch(`${API_BASE_URL}/api/items`, { method: "POST", body: payload });
     if (res.ok) {

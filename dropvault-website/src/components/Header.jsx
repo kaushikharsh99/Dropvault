@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { Vault } from "lucide-react";
+import { Box } from "lucide-react";
 import { Button } from "@/components/ui/button";
 const Header = ({ onLogin }) => {
   return <motion.header
@@ -11,7 +11,7 @@ const Header = ({ onLogin }) => {
       <div className="container mx-auto px-6 h-16 flex items-center justify-between">
         <a href="/" className="flex items-center gap-2 group">
           <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
-            <Vault className="w-5 h-5 text-primary-foreground" />
+            <Box className="w-5 h-5 text-primary-foreground" />
           </div>
           <span className="font-semibold text-lg text-foreground">DropVault</span>
         </a>

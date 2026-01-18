@@ -1,4 +1,4 @@
-import { defineConfig } from 'vite';
+import { defineConfig, loadEnv } from 'vite';
 import { crx } from '@crxjs/vite-plugin';
 import manifest from './manifest.json';
 import { resolve } from 'path';
@@ -18,14 +18,26 @@ const copyAssets = () => {
   };
 };
 
-export default defineConfig({
-  plugins: [
-    crx({ manifest }),
-    copyAssets()
-  ],
-  resolve: {
-    alias: {
-      '@': resolve(__dirname, 'src'),
+export default defineConfig(({ mode }) => {
+  const env = loadEnv(mode, process.cwd(), '');
+
+  const manifestWithEnv = {
+    ...manifest,
+    oauth2: {
+      ...manifest.oauth2,
+      client_id: env.VITE_GOOGLE_CLIENT_ID || manifest.oauth2.client_id,
     },
-  },
+  };
+
+  return {
+    plugins: [
+      crx({ manifest: manifestWithEnv }),
+      copyAssets()
+    ],
+    resolve: {
+      alias: {
+        '@': resolve(__dirname, 'src'),
+      },
+    },
+  };
 });
