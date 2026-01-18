@@ -52,7 +52,7 @@ os.makedirs(UPLOAD_DIR, exist_ok=True)
 # REMOVED: app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
 
 @app.get("/uploads/{file_path:path}")
-async def get_file(file_path: str):
+async def get_file(file_path: str, request: Request):
     full_path = os.path.join(UPLOAD_DIR, file_path)
     
     # Security check: prevent path traversal
@@ -62,7 +62,7 @@ async def get_file(file_path: str):
     if not os.path.exists(full_path):
         raise HTTPException(status_code=404, detail="File not found")
 
-    # Decrypt content
+    # Decrypt content into memory
     file_bytes = decrypt_file_content(full_path)
     
     if file_bytes is None:
@@ -70,15 +70,46 @@ async def get_file(file_path: str):
         try:
             with open(full_path, "rb") as f:
                 file_bytes = f.read()
-        except:
+        except Exception:
              raise HTTPException(status_code=500, detail="Could not read file")
 
     # Determine mime type
     mime_type, _ = mimetypes.guess_type(full_path)
     if not mime_type:
         mime_type = "application/octet-stream"
-        
-    return Response(content=file_bytes, media_type=mime_type)
+
+    file_size = len(file_bytes)
+    range_header = request.headers.get("range")
+
+    # Handle Range Header (RFC 7233)
+    if range_header and range_header.startswith("bytes="):
+        try:
+            range_values = range_header.replace("bytes=", "").split("-")
+            start = int(range_values[0]) if range_values[0] else 0
+            end = int(range_values[1]) if len(range_values) > 1 and range_values[1] else file_size - 1
+            
+            # Boundary checks
+            end = min(end, file_size - 1)
+            if start >= file_size or start > end:
+                return Response(status_code=416, headers={"Content-Range": f"bytes */{file_size}"})
+
+            chunk = file_bytes[start:end + 1]
+            headers = {
+                "Content-Range": f"bytes {start}-{end}/{file_size}",
+                "Accept-Ranges": "bytes",
+                "Content-Length": str(len(chunk)),
+                "Access-Control-Expose-Headers": "Content-Range"
+            }
+            return Response(content=chunk, status_code=206, media_type=mime_type, headers=headers)
+        except (ValueError, IndexError):
+            pass
+            
+    # Default: Full content
+    headers = {
+        "Accept-Ranges": "bytes",
+        "Content-Length": str(file_size)
+    }
+    return Response(content=file_bytes, media_type=mime_type, headers=headers)
 
 def extract_text_from_image(path):
     print(f"Running OCR on: {path}")
