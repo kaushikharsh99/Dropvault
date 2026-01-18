@@ -66,7 +66,7 @@ async def get_file(file_path: str):
     file_bytes = decrypt_file_content(full_path)
     
     if file_bytes is None:
-        # Fallback for unencrypted files (if migration missed something or legacy)
+        # Fallback for unencrypted files
         try:
             with open(full_path, "rb") as f:
                 file_bytes = f.read()
@@ -200,7 +200,7 @@ def extract_text(file_path, type, content=None):
     elif type == "image":
         text = extract_text_from_image(file_path)
         return text, None
-    elif type == "audio":
+    elif type == "audio" or type == "video":
         text = transcribe_audio(file_path)
         return text, None
     elif type == "link" or (type == "video" and content and content.startswith("http")):
@@ -404,11 +404,13 @@ async def create_item(
     tags: str = Form(None),
     userId: str = Form(None)
 ):
-    # Detect audio type if not explicitly set but file is audio
+    # Detect audio/video type if not explicitly set but file is media
     if file_path:
         ext = os.path.splitext(file_path)[1].lower()
         if ext in ['.mp3', '.wav', '.m4a', '.ogg', '.flac', '.webm']:
             type = "audio"
+        elif ext in ['.mp4', '.mov', '.avi', '.mkv', '.wmv']:
+            type = "video"
 
     if type == "link" and content:
         if "youtube.com" in content or "youtu.be" in content:
@@ -440,10 +442,11 @@ async def create_item(
     if (type == "link" or type == "video") and content and content.startswith("http"):
         final_file_path = content
 
-    if (type == "pdf" or type == "image" or type == "audio") and file_path:
+    if (type == "pdf" or type == "image" or type == "audio" or (type == "video" and file_path and not file_path.startswith('http'))) and file_path:
         clean_path = file_path.replace("/uploads/", "")
         local_path = os.path.join(UPLOAD_DIR, clean_path)
         if os.path.exists(local_path):
+            # For video files, we use the same transcription logic as audio
             extracted_text, meta_title = extract_text(local_path, type)
         else:
             print(f"File not found: {local_path}")

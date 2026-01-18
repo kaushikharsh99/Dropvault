@@ -87,23 +87,58 @@ const VaultList = ({ searchQuery = "", viewMode = "list", limit = 0, refreshTrig
 
   const getIcon = (type, size = 24) => {
     const props = { size, strokeWidth: 1.5 };
-    const t = type?.toLowerCase();
+    const t = (type || "").toLowerCase();
     switch (t) {
         case "image": return <ImageIcon {...props} className="text-purple-500" />;
         case "video": return <Video {...props} className="text-red-500" />;
         case "pdf": return <FileText {...props} className="text-orange-500" />;
         case "link": return <LinkIcon {...props} className="text-blue-500" />;
         case "article": return <FileText {...props} className="text-gray-500" />;
+        case "audio": return <FileText {...props} className="text-green-500" />;
         default: return <File {...props} className="text-gray-400" />;
     }
   };
 
+  // 1. Derived State: base items
+  const baseItems = searchQuery ? searchResults : itemsPool;
+
+  // 2. Derived State: filtered items
+  const filteredItems = baseItems.filter(item => {
+      const url = item.content || item.source_url;
+      const isYoutube = getYoutubeId(url);
+      const itemType = (item.type || "").toLowerCase();
+      const isVideo = itemType === "video" || isYoutube || getVimeoId(url) || getDailymotionId(url) || getTwitchId(url) || isTikTokUrl(url) || isInstagramReel(url) || isFacebookUrl(url);
+      
+      if (activeFilter === "ALL") return true;
+      if (activeFilter === "YOUTUBE") return isYoutube;
+      if (activeFilter === "IMAGE") return itemType === "image";
+      if (activeFilter === "VIDEO") return isVideo && !isYoutube;
+      if (activeFilter === "DOCS") return (itemType === "pdf" || itemType === "file" || itemType === "audio");
+      if (activeFilter === "LINKS") return ((itemType === "link" || itemType === "article") && !isVideo);
+      if (activeFilter === "NOTES") return itemType === "note";
+      return true;
+  });
+
+  // 3. Derived State: Displayed Items
+  const displayedItems = limit > 0 ? filteredItems.slice(0, limit) : filteredItems;
+
   const fetchItems = async (isInitial = true) => {
+      // If NOT searching, and we already have items for this view, we might skip
+      // But only if we are sure user hasn't changed. 
+      // For safety, let's allow refetching or check filteredItems length.
+      if (isInitial && !searchQuery && filteredItems.length > 0) {
+          // If we have items, maybe we don't need to fetch? 
+          // But 'itemsPool' might need more if we scrolled.
+          // Let's rely on standard logic: fetch if we need to.
+      }
+
       if (isInitial) setLoading(true); else setLoadingMore(true);
+      
       try {
           let url = "/api/items";
-          const offset = isInitial ? 0 : itemsPool.length;
+          const offset = isInitial ? 0 : itemsPool.length; // Use itemsPool length for offset
           const currentPageSize = getPageSize(isInitial);
+          
           if (searchQuery) {
               url = `/api/search?q=${encodeURIComponent(searchQuery)}`;
               setIsSearching(true);
@@ -111,26 +146,50 @@ const VaultList = ({ searchQuery = "", viewMode = "list", limit = 0, refreshTrig
               url += `?limit=${currentPageSize}&offset=${offset}&type=${activeFilter}`;
               setIsSearching(false);
           }
-          if (user) url += (url.includes('?') ? '&' : '?') + `userId=${user.uid}`;
+          
+          if (user) {
+              url += (url.includes('?') ? '&' : '?') + `userId=${user.uid}`;
+          }
+
+          console.log("Fetching items:", url); // Debugging
+
           const res = await fetch(url);
           if (res.ok) {
               const data = await res.json();
-              if (searchQuery) setSearchResults(data);
-              else {
+              
+              if (searchQuery) {
+                  setSearchResults(data);
+              } else {
                   setItemsPool(prev => {
                       const combined = isInitial ? data : [...prev, ...data];
                       const uniqueMap = {};
                       combined.forEach(item => { uniqueMap[item.id] = item; });
-                      return Object.values(uniqueMap).sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+                      return Object.values(uniqueMap).sort((a, b) => {
+                          const dateA = new Date((a.created_at || "").replace(" ", "T"));
+                          const dateB = new Date((b.created_at || "").replace(" ", "T"));
+                          return dateB - dateA;
+                      });
                   });
                   setHasMoreMap(prev => ({ ...prev, [activeFilter]: data.length === currentPageSize }));
               }
+          } else {
+              console.error("Fetch failed:", res.status);
           }
-      } catch (e) { console.error(e); } finally { setLoading(false); setLoadingMore(false); }
+      } catch (e) { 
+          console.error("Fetch error:", e); 
+      } finally { 
+          setLoading(false); 
+          setLoadingMore(false); 
+      } 
   };
 
   useEffect(() => {
-      if (refreshTrigger > 0) { setItemsPool([]); setHasMoreMap({}); }
+      // Reset logic when context changes
+      if (refreshTrigger > 0) { 
+          setItemsPool([]); 
+          setHasMoreMap({}); 
+      }
+      
       if (limit > 0) {
           const fetchRecent = async () => {
               setLoading(true);
@@ -150,6 +209,13 @@ const VaultList = ({ searchQuery = "", viewMode = "list", limit = 0, refreshTrig
           };
           fetchRecent();
       } else {
+          // Main Dashboard/Library Fetch
+          // Only fetch if user is loaded or (if user is optional) 
+          // If we want to show empty when not logged in, we can guard:
+          // if (!user) return; 
+          
+          // But assuming public items aren't a thing, we fetch only if user exists
+          // OR if we want to hit the API to confirm empty list.
           fetchItems(true);
       }
   }, [user, searchQuery, refreshTrigger, limit, activeFilter]);
@@ -181,6 +247,7 @@ const VaultList = ({ searchQuery = "", viewMode = "list", limit = 0, refreshTrig
           formData.append("content", editForm.content);
           formData.append("tags", editForm.tags);
           if (user) formData.append("userId", user.uid);
+          
           const res = await fetch(`/api/items/${selectedItem.id}`, { method: 'PUT', body: formData });
           if (res.ok) {
               const updatedItem = { ...selectedItem, ...editForm };
@@ -190,23 +257,6 @@ const VaultList = ({ searchQuery = "", viewMode = "list", limit = 0, refreshTrig
           }
       } catch (e) { console.error(e); }
   };
-
-  const baseItems = searchQuery ? searchResults : itemsPool;
-  const filteredItems = baseItems.filter(item => {
-      const url = item.content || item.source_url;
-      const isYoutube = getYoutubeId(url);
-      const isVideo = item.type === "video" || isYoutube || getVimeoId(url) || getDailymotionId(url) || getTwitchId(url) || isTikTokUrl(url) || isInstagramReel(url) || isFacebookUrl(url);
-      if (activeFilter === "ALL") return true;
-      if (activeFilter === "YOUTUBE") return isYoutube;
-      if (activeFilter === "IMAGE") return item.type === "image";
-      if (activeFilter === "VIDEO") return isVideo && !isYoutube;
-      if (activeFilter === "DOCS") return (item.type === "pdf" || item.type === "file");
-      if (activeFilter === "LINKS") return ((item.type === "link" || item.type === "article") && !isVideo);
-      if (activeFilter === "NOTES") return item.type === "note";
-      return true;
-  });
-
-  const displayedItems = limit > 0 ? filteredItems.slice(0, limit) : filteredItems;
 
   const FilterTabs = () => (
       <div className="d-flex gap-2 mb-4 overflow-auto pb-2" style={{ scrollbarWidth: "none" }}>
@@ -221,11 +271,12 @@ const VaultList = ({ searchQuery = "", viewMode = "list", limit = 0, refreshTrig
   const GridItemCard = ({ item }) => {
       const url = item.content || item.source_url;
       const ytId = getYoutubeId(url);
-      const isVid = ytId || getVimeoId(url) || getDailymotionId(url) || getTwitchId(url) || isTikTokUrl(url) || isInstagramReel(url) || isFacebookUrl(url) || item.type === 'video';
+      const itemType = (item.type || "").toLowerCase();
+      const isVid = ytId || getVimeoId(url) || getDailymotionId(url) || getTwitchId(url) || isTikTokUrl(url) || isInstagramReel(url) || isFacebookUrl(url) || itemType === 'video';
       return (
       <motion.div layout initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} whileHover={{ y: -4, boxShadow: "0 8px 20px rgba(0,0,0,0.08)" }} onClick={() => setSelectedItem(item)} className="bg-white rounded-4 border h-100 overflow-hidden cursor-pointer d-flex flex-column" style={{ minHeight: "200px" }}>
           <div className="flex-grow-1 bg-light d-flex align-items-center justify-content-center position-relative overflow-hidden" style={{ minHeight: "140px" }}>
-              {item.type === "image" ? <img src={item.file_path} alt="" className="w-100 h-100 object-fit-cover position-absolute" /> :
+              {itemType === "image" ? <img src={item.file_path} alt="" className="w-100 h-100 object-fit-cover position-absolute" /> :
                ytId ? <img src={`https://img.youtube.com/vi/${ytId}/hqdefault.jpg`} alt="" className="w-100 h-100 object-fit-cover position-absolute" /> :
                isVid ? <div className="w-100 h-100 d-flex align-items-center justify-content-center bg-dark"><Video size={48} className="text-white opacity-75" /></div> :
                <div className="opacity-50 transform scale-125">{getIcon(item.type, 48)}</div>}
@@ -334,6 +385,38 @@ const VaultList = ({ searchQuery = "", viewMode = "list", limit = 0, refreshTrig
                                 <div className="bg-white p-4 rounded-4 border">
                                     {selectedItem.type === "image" && <div className="text-center"><img src={selectedItem.file_path} alt="" className="img-fluid rounded mb-3" style={{ maxHeight: "500px" }} /></div>}
                                     
+                                    {(selectedItem.type === "audio" || (selectedItem.type === "video" && selectedItem.file_path && !selectedItem.file_path.startsWith('http'))) && (
+                                        <div className="mb-4">
+                                            <div className="bg-light p-3 rounded-3 mb-3 border d-flex align-items-center justify-content-center">
+                                                {selectedItem.type === "audio" ? (
+                                                    <audio controls style={{ width: "100%" }}>
+                                                        <source 
+                                                            src={selectedItem.file_path} 
+                                                            type={selectedItem.file_path.toLowerCase().endsWith('.wav') ? 'audio/wav' : 'audio/mpeg'} 
+                                                        />
+                                                        Your browser does not support the audio element.
+                                                    </audio>
+                                                ) : (
+                                                    <video controls src={selectedItem.file_path} style={{ width: "100%", borderRadius: "8px" }}>
+                                                        Your browser does not support the video element.
+                                                    </video>
+                                                )}
+                                            </div>
+                                            <div className="d-flex justify-content-end">
+                                                <Button 
+                                                    variant="outline-secondary" 
+                                                    size="sm" 
+                                                    onClick={() => {
+                                                        navigator.clipboard.writeText(selectedItem.content);
+                                                    }}
+                                                    className="d-flex align-items-center gap-2"
+                                                >
+                                                    <FileText size={14} /> Copy Transcription
+                                                </Button>
+                                            </div>
+                                        </div>
+                                    )}
+
                                     {(() => {
                                         const url = selectedItem.file_path || selectedItem.content || selectedItem.source_url;
                                         if (!url || !url.startsWith('http')) return null;
@@ -363,7 +446,7 @@ const VaultList = ({ searchQuery = "", viewMode = "list", limit = 0, refreshTrig
                                         <div className="py-3 text-center">
                                             <Button href={selectedItem.file_path || selectedItem.content} target="_blank" variant="primary">
                                                 <ExternalLink size={18} className="me-2" /> 
-                                                {(selectedItem.type === "pdf" || selectedItem.type === "file") ? "View File" : "Open Original Link"}
+                                                {(selectedItem.type === "pdf" || selectedItem.type === "file" || selectedItem.type === "audio" || (selectedItem.type === "video" && selectedItem.file_path && !selectedItem.file_path.startsWith('http'))) ? "View File" : "Open Original Link"}
                                             </Button>
                                         </div>
                                     )}
