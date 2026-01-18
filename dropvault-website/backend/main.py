@@ -15,12 +15,24 @@ from bs4 import BeautifulSoup
 import pytesseract
 import cv2
 from PIL import Image
+import whisper
 from io import BytesIO
 from .ai import generate_embedding, query_embedding, cosine_sim
 from .database import init_db, add_item, get_all_items, delete_item, update_item, get_item, get_all_items_with_embeddings, get_all_tags
 from .crypto import encrypt_file, decrypt_file_content
 
 app = FastAPI()
+
+# Initialize Whisper Model (load once)
+# Using "base" model for a balance of speed and accuracy. 
+# Options: tiny, base, small, medium, large
+print("Loading Whisper model...")
+try:
+    whisper_model = whisper.load_model("base")
+    print("Whisper model loaded.")
+except Exception as e:
+    print(f"Failed to load Whisper model: {e}")
+    whisper_model = None
 
 # CORS
 app.add_middleware(
@@ -103,6 +115,52 @@ def extract_text_from_image(path):
         print(f"OCR Error: {e}")
         return ""
 
+def transcribe_audio(file_path):
+    """
+    Transcribe audio file using OpenAI Whisper.
+    Handles encrypted files by decrypting to a temporary file.
+    """
+    if not whisper_model:
+        return "Transcription unavailable (Model not loaded)."
+        
+    print(f"Transcribing audio: {file_path}")
+    temp_path = None
+    try:
+        # We need a physical file for Whisper (or ffmpeg). 
+        # Since files are encrypted, decrypt to a temp file.
+        file_bytes = decrypt_file_content(file_path)
+        
+        if file_bytes is None:
+             # Fallback for unencrypted
+             if os.path.exists(file_path):
+                 # Create a temp copy anyway to be safe/consistent
+                 temp_path = file_path + ".tmp_transcribe" + os.path.splitext(file_path)[1]
+                 shutil.copy2(file_path, temp_path)
+             else:
+                 return ""
+        else:
+            # Write decrypted bytes to temp file
+            temp_path = file_path + ".tmp_transcribe" + os.path.splitext(file_path)[1]
+            with open(temp_path, "wb") as f:
+                f.write(file_bytes)
+        
+        # Run transcription
+        result = whisper_model.transcribe(temp_path)
+        text = result["text"].strip()
+        print(f"Transcription complete. Length: {len(text)}")
+        return text
+
+    except Exception as e:
+        print(f"Transcription Error: {e}")
+        return f"[Transcription Failed: {str(e)}]"
+    finally:
+        # Cleanup temp file
+        if temp_path and os.path.exists(temp_path):
+            try:
+                os.remove(temp_path)
+            except:
+                pass
+
 def extract_text(file_path, type, content=None):
     extracted_links = set()
     
@@ -141,6 +199,9 @@ def extract_text(file_path, type, content=None):
             return "", None
     elif type == "image":
         text = extract_text_from_image(file_path)
+        return text, None
+    elif type == "audio":
+        text = transcribe_audio(file_path)
         return text, None
     elif type == "link" or (type == "video" and content and content.startswith("http")):
         try:
@@ -343,6 +404,12 @@ async def create_item(
     tags: str = Form(None),
     userId: str = Form(None)
 ):
+    # Detect audio type if not explicitly set but file is audio
+    if file_path:
+        ext = os.path.splitext(file_path)[1].lower()
+        if ext in ['.mp3', '.wav', '.m4a', '.ogg', '.flac', '.webm']:
+            type = "audio"
+
     if type == "link" and content:
         if "youtube.com" in content or "youtu.be" in content:
             type = "video"
@@ -373,7 +440,7 @@ async def create_item(
     if (type == "link" or type == "video") and content and content.startswith("http"):
         final_file_path = content
 
-    if (type == "pdf" or type == "image") and file_path:
+    if (type == "pdf" or type == "image" or type == "audio") and file_path:
         clean_path = file_path.replace("/uploads/", "")
         local_path = os.path.join(UPLOAD_DIR, clean_path)
         if os.path.exists(local_path):

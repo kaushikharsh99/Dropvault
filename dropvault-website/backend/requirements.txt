@@ -12,3 +12,4 @@ pillow
 opencv-python
 cryptography
 python-dotenv
+openai-whisper
