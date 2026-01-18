@@ -104,6 +104,8 @@ def extract_text_from_image(path):
         return ""
 
 def extract_text(file_path, type, content=None):
+    extracted_links = set()
+    
     if type == "pdf":
         text = ""
         try:
@@ -119,6 +121,20 @@ def extract_text(file_path, type, content=None):
                     extracted = page.extract_text()
                     if extracted:
                         text += extracted + "\n"
+                    
+                    # Extract hyperlinks
+                    try:
+                        hyperlinks = page.hyperlinks
+                        for link in hyperlinks:
+                            if 'uri' in link:
+                                extracted_links.add(link['uri'])
+                    except:
+                        pass
+                        
+            # Append extracted links
+            if extracted_links:
+                text += "\n\n--- Extracted Links ---\n" + "\n".join(extracted_links)
+                
             return text, None
         except Exception as e:
             print(f"PDF Extraction Error: {e}")
@@ -186,6 +202,11 @@ def extract_text(file_path, type, content=None):
             lines = (line.strip() for line in body_text.splitlines())
             chunks = (phrase.strip() for line in lines for phrase in line.split("  "))
             clean_body = "\n".join(chunk for chunk in chunks if chunk)
+            
+            # Find links in body text
+            urls = re.findall(r'http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\\(\\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+', clean_body)
+            for url in urls:
+                extracted_links.add(url)
 
             final_parts = [f"URL: {content}"]
             if meta["title"]: final_parts.append(f"Title: {meta['title']}")
@@ -197,6 +218,9 @@ def extract_text(file_path, type, content=None):
             
             final_parts.append("\n--- Content ---\n")
             final_parts.append(clean_body[:7000])
+            
+            if extracted_links:
+                final_parts.append("\n\n--- Extracted Links ---\n" + "\n".join(list(extracted_links)[:20])) # Limit to 20 links
 
             return "\n".join(final_parts), page_title
 
@@ -235,6 +259,80 @@ async def upload_file(file: UploadFile = File(...), userId: str = Form(None)):
         "mimetype": file.content_type
     }
 
+def detect_social_platform(url):
+    if not url: return None
+    url = url.lower()
+    
+    platforms = {
+        "facebook.com": "Facebook", "fb.watch": "Facebook", "messenger.com": "Messenger",
+        "instagram.com": "Instagram", "instagr.am": "Instagram",
+        "twitter.com": "Twitter", "x.com": "Twitter",
+        "tiktok.com": "TikTok",
+        "snapchat.com": "Snapchat",
+        "linkedin.com": "LinkedIn",
+        "pinterest.com": "Pinterest", "pin.it": "Pinterest",
+        "reddit.com": "Reddit", "redd.it": "Reddit",
+        "tumblr.com": "Tumblr",
+        "threads.net": "Threads",
+        "whatsapp.com": "WhatsApp", "wa.me": "WhatsApp",
+        "t.me": "Telegram", "telegram.org": "Telegram",
+        "wechat.com": "WeChat",
+        "signal.org": "Signal",
+        "line.me": "LINE",
+        "viber.com": "Viber",
+        "discord.com": "Discord", "discord.gg": "Discord",
+        "kakao.com": "KakaoTalk",
+        "skype.com": "Skype",
+        "youtube.com": "YouTube", "youtu.be": "YouTube",
+        "twitch.tv": "Twitch",
+        "vimeo.com": "Vimeo",
+        "dailymotion.com": "Dailymotion",
+        "rumble.com": "Rumble",
+        "bilibili.com": "Bilibili",
+        "nicovideo.jp": "NicoNico",
+        "likee.video": "Likee",
+        "kwai.com": "Kwai",
+        "triller.co": "Triller",
+        "bsky.app": "Bluesky",
+        "mastodon.social": "Mastodon", "mstdn.social": "Mastodon",
+        "plurk.com": "Plurk",
+        "gab.com": "Gab",
+        "truthsocial.com": "Truth Social",
+        "gettr.com": "GETTR",
+        "parler.com": "Parler",
+        "xing.com": "Xing",
+        "indeed.com": "Indeed",
+        "meetup.com": "Meetup",
+        "glassdoor.com": "Glassdoor",
+        "quora.com": "Quora",
+        "stackoverflow.com": "Stack Overflow",
+        "4chan.org": "4chan",
+        "lemmy.ml": "Lemmy",
+        "hive.blog": "Hive",
+        "nextdoor.com": "Nextdoor",
+        "fark.com": "Fark",
+        "deviantart.com": "DeviantArt",
+        "behance.net": "Behance",
+        "dribbble.com": "Dribbble",
+        "flickr.com": "Flickr",
+        "500px.com": "500px",
+        "vsco.co": "VSCO",
+        "artstation.com": "ArtStation",
+        "tinder.com": "Tinder",
+        "bumble.com": "Bumble",
+        "hinge.co": "Hinge",
+        "okcupid.com": "OkCupid",
+        "pof.com": "Plenty of Fish",
+        "grindr.com": "Grindr",
+        "badoo.com": "Badoo",
+        "happn.com": "Happn"
+    }
+
+    for domain, name in platforms.items():
+        if domain in url:
+            return name
+    return None
+
 @app.post("/api/items")
 async def create_item(
     title: str = Form(...),
@@ -248,6 +346,18 @@ async def create_item(
     if type == "link" and content:
         if "youtube.com" in content or "youtu.be" in content:
             type = "video"
+            
+    # Auto-tagging for social media
+    detected_platform = None
+    if (type == "link" or type == "video") and content:
+         detected_platform = detect_social_platform(content)
+    
+    current_tags = [t.strip() for t in tags.split(',')] if tags else []
+    
+    if detected_platform and detected_platform not in current_tags:
+        current_tags.append(detected_platform)
+        
+    tags = ", ".join(current_tags) if current_tags else ""
 
     text_to_embed = f"{title} "
     if tags:
@@ -258,6 +368,11 @@ async def create_item(
     extracted_text = ""
     meta_title = None
     
+    # Preserve the original URL in file_path for link types
+    final_file_path = file_path
+    if (type == "link" or type == "video") and content and content.startswith("http"):
+        final_file_path = content
+
     if (type == "pdf" or type == "image") and file_path:
         clean_path = file_path.replace("/uploads/", "")
         local_path = os.path.join(UPLOAD_DIR, clean_path)
@@ -278,7 +393,7 @@ async def create_item(
     
     vector = generate_embedding(text_to_embed)
     
-    item_id = add_item(title, type, extracted_text, notes, file_path, vector, tags, userId)
+    item_id = add_item(title, type, extracted_text, notes, final_file_path, vector, tags, userId)
     
     return {
         "id": item_id, 
