@@ -40,6 +40,24 @@ def init_db():
         c.execute("SELECT thumbnail_path FROM items LIMIT 1")
     except sqlite3.OperationalError:
         c.execute("ALTER TABLE items ADD COLUMN thumbnail_path TEXT")
+
+    # Check if status column exists, if not add it
+    try:
+        c.execute("SELECT status FROM items LIMIT 1")
+    except sqlite3.OperationalError:
+        c.execute("ALTER TABLE items ADD COLUMN status TEXT DEFAULT 'completed'")
+        
+    # Check if progress_stage column exists, if not add it
+    try:
+        c.execute("SELECT progress_stage FROM items LIMIT 1")
+    except sqlite3.OperationalError:
+        c.execute("ALTER TABLE items ADD COLUMN progress_stage TEXT")
+        
+    # Check if progress_percent column exists, if not add it
+    try:
+        c.execute("SELECT progress_percent FROM items LIMIT 1")
+    except sqlite3.OperationalError:
+        c.execute("ALTER TABLE items ADD COLUMN progress_percent INTEGER DEFAULT 100")
     
     # Add index for faster queries
     c.execute("CREATE INDEX IF NOT EXISTS idx_user_id ON items(user_id)")
@@ -52,12 +70,12 @@ def get_db_path():
     base_dir = os.path.dirname(os.path.abspath(__file__))
     return os.path.join(base_dir, DB_NAME)
 
-def add_item(title, type, content, notes, file_path, embedding, tags="", user_id=None, thumbnail_path=None):
+def add_item(title, type, content, notes, file_path, embedding, tags="", user_id=None, thumbnail_path=None, status="completed", progress_stage="done", progress_percent=100):
     conn = sqlite3.connect(get_db_path())
     c = conn.cursor()
     embedding_json = json.dumps(embedding) if embedding else None
-    c.execute("INSERT INTO items (title, type, content, notes, file_path, embedding, tags, user_id, thumbnail_path) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
-              (title, type, content, notes, file_path, embedding_json, tags, user_id, thumbnail_path))
+    c.execute("INSERT INTO items (title, type, content, notes, file_path, embedding, tags, user_id, thumbnail_path, status, progress_stage, progress_percent) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+              (title, type, content, notes, file_path, embedding_json, tags, user_id, thumbnail_path, status, progress_stage, progress_percent))
     item_id = c.lastrowid
     conn.commit()
     conn.close()
@@ -68,7 +86,7 @@ def get_all_items(user_id=None, limit=None, offset=None, item_type=None):
     conn.row_factory = sqlite3.Row
     c = conn.cursor()
     
-    fields = "id, title, type, content, notes, file_path, created_at, tags, user_id, thumbnail_path"
+    fields = "id, title, type, content, notes, file_path, created_at, tags, user_id, thumbnail_path, status, progress_stage, progress_percent"
     query = f"SELECT {fields} FROM items WHERE user_id = ?"
     params = [user_id]
     
@@ -114,7 +132,7 @@ def get_item(item_id, user_id=None):
     conn = sqlite3.connect(get_db_path())
     conn.row_factory = sqlite3.Row
     c = conn.cursor()
-    fields = "id, title, type, content, notes, file_path, created_at, tags, user_id, thumbnail_path"
+    fields = "id, title, type, content, notes, file_path, created_at, tags, user_id, thumbnail_path, status, progress_stage, progress_percent"
     if user_id:
         c.execute(f"SELECT {fields} FROM items WHERE id = ? AND user_id = ?", (item_id, user_id))
     else:
@@ -145,17 +163,51 @@ def get_all_items_with_embeddings(user_id=None):
     conn.close()
     return [dict(row) for row in rows]
 
-def update_item(item_id, title, content, tags, embedding=None, user_id=None):
+def update_item(item_id, title, content, tags, embedding=None, user_id=None, status=None, progress_stage=None, progress_percent=None, thumbnail_path=None):
     conn = sqlite3.connect(get_db_path())
     c = conn.cursor()
     
-    query = "UPDATE items SET title = ?, content = ?, tags = ?"
-    params = [title, content, tags]
+    query = "UPDATE items SET "
+    params = []
+    updates = []
     
-    if embedding:
-        query += ", embedding = ?"
+    if title is not None:
+        updates.append("title = ?")
+        params.append(title)
+        
+    if content is not None:
+        updates.append("content = ?")
+        params.append(content)
+        
+    if tags is not None:
+        updates.append("tags = ?")
+        params.append(tags)
+        
+    if embedding is not None:
+        updates.append("embedding = ?")
         params.append(json.dumps(embedding))
         
+    if status is not None:
+        updates.append("status = ?")
+        params.append(status)
+        
+    if progress_stage is not None:
+        updates.append("progress_stage = ?")
+        params.append(progress_stage)
+        
+    if progress_percent is not None:
+        updates.append("progress_percent = ?")
+        params.append(progress_percent)
+
+    if thumbnail_path is not None:
+        updates.append("thumbnail_path = ?")
+        params.append(thumbnail_path)
+        
+    if not updates:
+        conn.close()
+        return
+
+    query += ", ".join(updates)
     query += " WHERE id = ?"
     params.append(item_id)
     
@@ -211,3 +263,21 @@ def get_all_tags(user_id):
         reverse=True
     )
     return sorted_tags
+
+def get_processing_items(user_id):
+    conn = sqlite3.connect(get_db_path())
+    conn.row_factory = sqlite3.Row
+    c = conn.cursor()
+    c.execute("SELECT id, status, progress_stage, progress_percent FROM items WHERE user_id = ? AND status IN ('pending', 'processing')", (user_id,))
+    rows = c.fetchall()
+    conn.close()
+    
+    results = []
+    for row in rows:
+        results.append({
+            "item_id": row["id"],
+            "status": row["status"],
+            "stage": row["progress_stage"],
+            "percent": row["progress_percent"]
+        })
+    return results

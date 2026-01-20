@@ -92,14 +92,15 @@ const GridItemCard = ({ item, isSelectionMode, isSelected, onSelect, onClick }) 
     const ytId = getYoutubeId(url);
     const itemType = (item.type || "").toLowerCase();
     const isVid = ytId || getVimeoId(url) || getDailymotionId(url) || getTwitchId(url) || isTikTokUrl(url) || isInstagramReel(url) || isFacebookUrl(url) || itemType === 'video';
+    const isProcessing = item.status && item.status !== "completed" && item.status !== "failed";
 
     return (
     <motion.div 
-        initial={{ opacity: 0, scale: 0.95 }}
-        animate={{ opacity: 1, scale: 1 }}
+        initial={{ opacity: 0, scale: 0.95 }} 
+        animate={{ opacity: 1, scale: 1 }} 
         whileHover={{ y: -4, boxShadow: "0 8px 20px rgba(0,0,0,0.08)" }} 
         onClick={() => isSelectionMode ? onSelect(item.id) : onClick(item)} 
-        className="bg-white rounded-4 border h-100 overflow-hidden cursor-pointer d-flex flex-column position-relative"
+        className="bg-white rounded-4 border h-100 overflow-hidden cursor-pointer d-flex flex-column position-relative" 
         style={{ minHeight: "200px", ...(isSelected ? {boxShadow: "0 0 0 2px var(--bs-primary)"} : {}) }}
     >
         {isSelectionMode && (
@@ -134,6 +135,24 @@ const GridItemCard = ({ item, isSelectionMode, isSelected, onSelect, onClick }) 
                  )
              ) :
              <div className="opacity-50 transform scale-125">{getIcon(item.type, 48)}</div>}
+
+            {isProcessing && (
+                <div className="position-absolute bottom-0 start-0 w-100 bg-white bg-opacity-90 border-top p-2" style={{ zIndex: 5 }}>
+                    <div className="d-flex justify-content-between align-items-center mb-1">
+                        <small className="fw-bold text-primary" style={{ fontSize: "0.65rem" }}>
+                            {item.progress_stage ? item.progress_stage.toUpperCase() : "PROCESSING"}
+                        </small>
+                        <small className="text-muted" style={{ fontSize: "0.65rem" }}>{item.progress_percent || 0}%</small>
+                    </div>
+                    <div className="progress" style={{ height: "4px" }}>
+                        <div 
+                            className="progress-bar progress-bar-striped progress-bar-animated" 
+                            role="progressbar" 
+                            style={{ width: `${item.progress_percent || 5}%` }}
+                        ></div>
+                    </div>
+                </div>
+            )}
         </div>
         <div className="p-3 border-top">
             <h6 className="fw-semibold mb-1 text-truncate text-dark">{item.title || "Untitled"}</h6>
@@ -147,10 +166,11 @@ const GridItemCard = ({ item, isSelectionMode, isSelected, onSelect, onClick }) 
 };
 
 const ItemCard = ({ item, isSelectionMode, isSelected, onSelect, onClick }) => {
+  const isProcessing = item.status && item.status !== "completed" && item.status !== "failed";
   return (
   <motion.div 
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
+      initial={{ opacity: 0, y: 10 }} 
+      animate={{ opacity: 1, y: 0 }} 
       whileHover={{ y: -2, boxShadow: "0 4px 12px rgba(0,0,0,0.05)" }} 
       className={`bg-white rounded-3 border p-3 cursor-pointer d-flex align-items-center gap-3 transition-all ${isSelected ? 'border-primary bg-light' : ''}`} 
       onClick={() => isSelectionMode ? onSelect(item.id) : onClick(item)}
@@ -160,10 +180,30 @@ const ItemCard = ({ item, isSelectionMode, isSelected, onSelect, onClick }) => {
                {isSelected ? <CheckSquare size={20} /> : <Square size={20} />}
            </div>
       )}
-      <div className="p-2 bg-light rounded-circle d-flex align-items-center justify-content-center">{getIcon(item.type)}</div>
+      <div className="p-2 bg-light rounded-circle d-flex align-items-center justify-content-center position-relative">
+          {getIcon(item.type)}
+          {isProcessing && (
+              <div className="position-absolute top-0 start-0 w-100 h-100 rounded-circle border border-2 border-primary border-top-0 border-start-0 animate-spin"></div>
+          )}
+      </div>
       <div className="flex-grow-1 overflow-hidden">
           <h6 className="fw-semibold mb-1 text-truncate text-dark">{item.title || "Untitled"}</h6>
-          <div className="d-flex align-items-center gap-2 text-muted small"><span className="text-uppercase fw-bold" style={{ fontSize: "0.7rem" }}>{item.type}</span><span>•</span><span>{formatRelativeTime(item.created_at)}</span></div>
+          <div className="d-flex align-items-center gap-2 text-muted small">
+              <span className="text-uppercase fw-bold" style={{ fontSize: "0.7rem" }}>{item.type}</span>
+              <span>•</span>
+              {isProcessing ? (
+                  <span className="text-primary fw-bold">
+                      {item.progress_stage ? item.progress_stage.toUpperCase() : "PROCESSING"} ({item.progress_percent || 0}%)
+                  </span>
+              ) : (
+                  <span>{formatRelativeTime(item.created_at)}</span>
+              )}
+          </div>
+          {isProcessing && (
+               <div className="progress mt-2" style={{ height: "3px" }}>
+                    <div className="progress-bar bg-primary" style={{ width: `${item.progress_percent || 5}%` }}></div>
+               </div>
+          )}
       </div>
   </motion.div>
   );
@@ -187,8 +227,34 @@ const VaultList = ({ searchQuery = "", viewMode = "list", limit = 0, refreshTrig
   const [selectedItems, setSelectedItems] = useState([]);
   const [isSelectionMode, setIsSelectionMode] = useState(false);
 
-  const getPageSize = (isInitial) => (isInitial ? 32 : 150);
+  // WebSocket Connection
+  useEffect(() => {
+    if (!user) return;
+    
+    let ws;
+    try {
+        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        ws = new WebSocket(`${protocol}//${window.location.host}/ws/progress/${user.uid}`);
+        
+        ws.onmessage = (event) => {
+            const data = JSON.parse(event.data);
+            setItemsPool(prev => prev.map(item => {
+                if (item.id === data.item_id) {
+                    return { ...item, ...data };
+                }
+                return item;
+            }));
+        };
+        
+        ws.onerror = (e) => console.error("WS Error:", e);
+    } catch (e) { console.error("WS Setup Error:", e); }
 
+    return () => {
+        if (ws) ws.close();
+    };
+  }, [user]);
+
+  const getPageSize = (isInitial) => (isInitial ? 32 : 150);
   const toggleSelection = (id, e) => {
       if (e) e.stopPropagation();
       setSelectedItems(prev => {

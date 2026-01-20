@@ -3,7 +3,7 @@ import { BrowserRouter } from "react-router-dom";
 import { useAuth } from "./AuthContext";
 import { Container, Button, Navbar, Row, Col } from "react-bootstrap";
 import { motion, AnimatePresence } from "framer-motion";
-import { Search, LogOut, User, ArrowRight, ArrowLeft, Library, Box } from "lucide-react";
+import { Search, LogOut, User, ArrowRight, ArrowLeft, Library, Box, Loader2 } from "lucide-react";
 import UniversalDropZone from "./components/UniversalDropZone";
 import VaultList from "./components/VaultList";
 import LandingPage from "./components/LandingPage";
@@ -17,14 +17,72 @@ const Dashboard = () => {
   const [activeTags, setActiveTags] = useState([]);
   const [viewMode, setViewMode] = useState("dashboard"); // 'dashboard' | 'all_items'
   const [refreshTrigger, setRefreshTrigger] = useState(0);
+  const [processingItems, setProcessingItems] = useState({}); // item_id -> progress data
+  const [uploadingCount, setUploadingCount] = useState(0); // Number of files currently uploading
 
   const handleRefresh = () => setRefreshTrigger(prev => prev + 1);
+
+  // Handlers for UniversalDropZone
+  const handleUploadStart = () => setUploadingCount(prev => prev + 1);
+  const handleUploadEnd = () => setUploadingCount(prev => Math.max(0, prev - 1));
+
+  // Restore processing state on mount
+  React.useEffect(() => {
+      if (!user) return;
+      const fetchProcessing = async () => {
+          try {
+              const res = await fetch(`/api/items?limit=20&userId=${user.uid}`);
+              if (res.ok) {
+                  const items = await res.json();
+                  const processing = {};
+                  items.forEach(item => {
+                      if (item.status === 'pending' || item.status === 'processing') {
+                          processing[item.id] = {
+                              item_id: item.id,
+                              stage: item.progress_stage || 'queued',
+                              percent: item.progress_percent || 0,
+                              status: item.status
+                          };
+                      }
+                  });
+                  setProcessingItems(prev => ({ ...prev, ...processing }));
+              }
+          } catch (e) { console.error(e); }
+      };
+      fetchProcessing();
+  }, [user]);
+
+  // Global WebSocket for Progress
+  React.useEffect(() => {
+    if (!user) return;
+    let ws;
+    try {
+        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        ws = new WebSocket(`${protocol}//${window.location.host}/ws/progress/${user.uid}`);
+        ws.onmessage = (event) => {
+            const data = JSON.parse(event.data);
+            if (data.status === "completed" || data.status === "failed") {
+                setProcessingItems(prev => {
+                    const next = { ...prev };
+                    delete next[data.item_id];
+                    return next;
+                });
+                handleRefresh();
+            } else {
+                setProcessingItems(prev => ({
+                    ...prev,
+                    [data.item_id]: data
+                }));
+            }
+        };
+    } catch (e) { console.error(e); }
+    return () => ws?.close();
+  }, [user]);
 
   const effectiveSearchQuery = activeTags.length > 0 ? activeTags.join(", ") : searchQuery;
 
   const handleTagToggle = (tag) => {
       if (Array.isArray(tag)) {
-          // Clear all
           setActiveTags([]);
           return;
       }
@@ -37,8 +95,11 @@ const Dashboard = () => {
           }
       });
       setViewMode("all_items");
-      setSearchQuery(""); // Clear text search when tagging
+      setSearchQuery(""); 
   };
+
+  const activeTasks = Object.values(processingItems);
+  const hasActivity = uploadingCount > 0 || activeTasks.length > 0;
 
   return (
     <div className="min-vh-100 bg-light">
@@ -88,6 +149,67 @@ const Dashboard = () => {
       </Navbar>
       
       <Container fluid className="px-4 pb-5">
+        {/* GLOBAL ACTIVITY BAR */}
+        <AnimatePresence>
+            {hasActivity && (
+                <motion.div 
+                    initial={{ opacity: 0, y: -20, height: 0 }} 
+                    animate={{ opacity: 1, y: 0, height: "auto" }}
+                    exit={{ opacity: 0, y: -20, height: 0 }}
+                    className="mb-4 overflow-hidden"
+                >
+                    <div className="bg-white rounded-4 border p-3 shadow-sm">
+                        <div className="d-flex align-items-center gap-3 mb-3 px-1 border-bottom pb-2">
+                            <Loader2 size={20} className="text-primary animate-spin" />
+                            <div>
+                                <h6 className="mb-0 fw-bold text-dark">System Activity</h6>
+                                <small className="text-muted">
+                                    {uploadingCount > 0 ? `Uploading ${uploadingCount} file(s)... ` : ""}
+                                    {activeTasks.length > 0 ? `Processing ${activeTasks.length} item(s)...` : ""}
+                                </small>
+                            </div>
+                        </div>
+                        
+                        <div className="d-flex flex-column gap-2" style={{ maxHeight: "200px", overflowY: "auto" }}>
+                            {/* Uploads Placeholder */}
+                            {uploadingCount > 0 && (
+                                <div className="bg-light rounded-3 p-2 px-3 border border-opacity-10 d-flex align-items-center gap-3">
+                                    <div className="spinner-border spinner-border-sm text-secondary" role="status"></div>
+                                    <div className="flex-grow-1">
+                                        <div className="d-flex justify-content-between align-items-center">
+                                            <span className="small fw-bold text-dark">Uploading Files...</span>
+                                            <span className="small text-muted">{uploadingCount} remaining</span>
+                                        </div>
+                                        <div className="progress mt-1" style={{ height: '4px' }}>
+                                            <div className="progress-bar progress-bar-striped progress-bar-animated bg-secondary" style={{ width: '100%' }}></div>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Processing Tasks */}
+                            {activeTasks.map(task => (
+                                <div key={task.item_id} className="bg-light rounded-3 p-2 px-3 border border-opacity-10">
+                                    <div className="d-flex justify-content-between align-items-center mb-1">
+                                        <span className="small fw-bold text-dark">Item #{task.item_id}</span>
+                                        <span className="small text-primary fw-bold text-uppercase" style={{ fontSize: '0.65rem' }}>
+                                            {task.stage} • {task.percent}%
+                                        </span>
+                                    </div>
+                                    <div className="progress" style={{ height: '4px' }}>
+                                        <div 
+                                            className="progress-bar progress-bar-striped progress-bar-animated" 
+                                            style={{ width: `${task.percent}%` }}
+                                        ></div>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                </motion.div>
+            )}
+        </AnimatePresence>
+
         <AnimatePresence mode="wait">
             {viewMode === "dashboard" ? (
                 <motion.div
@@ -100,7 +222,11 @@ const Dashboard = () => {
                     {/* ADD ITEM SECTION */}
                     <Row className="justify-content-center mb-5">
                         <Col xs={12}>
-                            <UniversalDropZone onItemAdded={handleRefresh} />
+                            <UniversalDropZone 
+                                onItemAdded={handleRefresh} 
+                                onUploadStart={handleUploadStart}
+                                onUploadEnd={handleUploadEnd}
+                            />
                         </Col>
                     </Row>
 
@@ -125,7 +251,7 @@ const Dashboard = () => {
                             </Button>
                         </div>
                         
-                        <VaultList searchQuery="" viewMode="grouped" limit={4} refreshTrigger={refreshTrigger} />
+                        <VaultList searchQuery="" viewMode="grouped" limit={5} refreshTrigger={refreshTrigger} />
                     </div>
                 </motion.div>
             ) : (

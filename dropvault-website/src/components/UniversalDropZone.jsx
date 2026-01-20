@@ -158,8 +158,8 @@ const UniversalDropZone = ({ onItemAdded }) => {
                         />
                         <p className="small text-muted fw-bold mb-0">
                             {processingFiles.length > 0 
-                                ? `Processing ${processingFiles.length} file(s)...` 
-                                : "Processing & Embedding..."}
+                                ? `Uploading ${processingFiles.length} file(s)...` 
+                                : "Uploading..."}
                         </p>
                         {processingFiles.length > 0 && (
                             <div className="mt-2 d-flex flex-wrap justify-content-center gap-2">
