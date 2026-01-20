@@ -19,7 +19,6 @@ import whisper
 from io import BytesIO
 from .ai import generate_embedding, query_embedding, cosine_sim
 from .database import init_db, add_item, get_all_items, delete_item, update_item, get_item, get_all_items_with_embeddings, get_all_tags
-from .crypto import encrypt_file, decrypt_file_content
 from .vision import detect_objects
 
 app = FastAPI()
@@ -62,14 +61,12 @@ async def get_file(file_path: str, request: Request):
     if not os.path.exists(full_path):
         raise HTTPException(status_code=404, detail="File not found")
 
-    # Get bytes (decrypted or plain)
-    file_bytes = decrypt_file_content(full_path)
-    if file_bytes is None:
-        try:
-            with open(full_path, "rb") as f:
-                file_bytes = f.read()
-        except Exception:
-             raise HTTPException(status_code=500, detail="Could not read file")
+    # Get bytes
+    try:
+        with open(full_path, "rb") as f:
+            file_bytes = f.read()
+    except Exception:
+         raise HTTPException(status_code=500, detail="Could not read file")
 
     mime_type, _ = mimetypes.guess_type(full_path)
     mime_type = mime_type or "application/octet-stream"
@@ -111,12 +108,9 @@ async def get_file(file_path: str, request: Request):
 def extract_text_from_image(path):
     print(f"Running OCR on: {path}")
     try:
-        # Load image (Encrypted aware)
-        file_bytes = decrypt_file_content(path)
-        if file_bytes is None:
-            # Fallback for plain files
-            with open(path, "rb") as f:
-                file_bytes = f.read()
+        # Load image
+        with open(path, "rb") as f:
+            file_bytes = f.read()
                 
         # Convert bytes to numpy array
         nparr = np.frombuffer(file_bytes, np.uint8)
@@ -146,24 +140,7 @@ def extract_text_from_image(path):
 def generate_video_thumbnail(video_path, thumbnail_path):
     print(f"Generating thumbnail for: {video_path}")
     try:
-        # We need a physical file for OpenCV VideoCapture.
-        # Since files are encrypted, decrypt to a temp file.
-        temp_path = None
-        file_bytes = decrypt_file_content(video_path)
-        
-        if file_bytes is None:
-             # Fallback for unencrypted
-             if os.path.exists(video_path):
-                 temp_path = video_path # Use original if not encrypted
-             else:
-                 return False
-        else:
-            # Write decrypted bytes to temp file
-            temp_path = video_path + ".tmp_thumb" + os.path.splitext(video_path)[1]
-            with open(temp_path, "wb") as f:
-                f.write(file_bytes)
-
-        cap = cv2.VideoCapture(temp_path)
+        cap = cv2.VideoCapture(video_path)
         if not cap.isOpened():
             print("Could not open video for thumbnail generation")
             return False
@@ -190,45 +167,18 @@ def generate_video_thumbnail(video_path, thumbnail_path):
     except Exception as e:
         print(f"Thumbnail Generation Error: {e}")
         return False
-    finally:
-        # Cleanup temp file if created
-        if file_bytes is not None and temp_path and os.path.exists(temp_path):
-            try:
-                os.remove(temp_path)
-            except:
-                pass
 
 def transcribe_audio(file_path):
     """
     Transcribe audio file using OpenAI Whisper.
-    Handles encrypted files by decrypting to a temporary file.
     """
     if not whisper_model:
         return "Transcription unavailable (Model not loaded)."
         
     print(f"Transcribing audio: {file_path}")
-    temp_path = None
     try:
-        # We need a physical file for Whisper (or ffmpeg). 
-        # Since files are encrypted, decrypt to a temp file.
-        file_bytes = decrypt_file_content(file_path)
-        
-        if file_bytes is None:
-             # Fallback for unencrypted
-             if os.path.exists(file_path):
-                 # Create a temp copy anyway to be safe/consistent
-                 temp_path = file_path + ".tmp_transcribe" + os.path.splitext(file_path)[1]
-                 shutil.copy2(file_path, temp_path)
-             else:
-                 return ""
-        else:
-            # Write decrypted bytes to temp file
-            temp_path = file_path + ".tmp_transcribe" + os.path.splitext(file_path)[1]
-            with open(temp_path, "wb") as f:
-                f.write(file_bytes)
-        
         # Run transcription
-        result = whisper_model.transcribe(temp_path)
+        result = whisper_model.transcribe(file_path)
         text = result["text"].strip()
         print(f"Transcription complete. Length: {len(text)}")
         return text
@@ -236,13 +186,6 @@ def transcribe_audio(file_path):
     except Exception as e:
         print(f"Transcription Error: {e}")
         return f"[Transcription Failed: {str(e)}]"
-    finally:
-        # Cleanup temp file
-        if temp_path and os.path.exists(temp_path):
-            try:
-                os.remove(temp_path)
-            except:
-                pass
 
 def extract_text(file_path, type, content=None):
     extracted_links = set()
@@ -250,14 +193,7 @@ def extract_text(file_path, type, content=None):
     if type == "pdf":
         text = ""
         try:
-            # Decrypt PDF to memory
-            file_bytes = decrypt_file_content(file_path)
-            if file_bytes is None:
-                # Fallback
-                with open(file_path, "rb") as f:
-                    file_bytes = f.read()
-            
-            with pdfplumber.open(BytesIO(file_bytes)) as pdf:
+            with pdfplumber.open(file_path) as pdf:
                 for page in pdf.pages:
                     extracted = page.extract_text()
                     if extracted:
@@ -417,7 +353,7 @@ async def upload_file(file: UploadFile = File(...), userId: str = Form(None)):
     with open(file_path, "wb") as buffer:
         shutil.copyfileobj(file.file, buffer)
         
-    # Generate Thumbnail for Video (Before Encryption)
+    # Generate Thumbnail for Video
     thumbnail_url = None
     mime_type = file.content_type
     if not mime_type:
@@ -435,9 +371,6 @@ async def upload_file(file: UploadFile = File(...), userId: str = Form(None)):
             else:
                 thumbnail_url = f"/uploads/thumbnails/{thumb_filename}"
 
-    # Encrypt immediately after saving
-    encrypt_file(file_path)
-    
     return {
         "success": True,
         "fileUrl": file_url, 

@@ -4,7 +4,6 @@ import torch
 import io
 import os
 import re
-from .crypto import decrypt_file_content
 
 # Global models
 owl_processor = None
@@ -80,15 +79,11 @@ def detect_objects(file_path):
             return {"caption": "", "tags": []}
 
     try:
-        # Decrypt/Load Image
-        file_bytes = decrypt_file_content(file_path)
-        if file_bytes is None:
-            if os.path.exists(file_path):
-                image = Image.open(file_path).convert("RGB")
-            else:
-                return {"caption": "", "tags": []}
+        # Load Image
+        if os.path.exists(file_path):
+            image = Image.open(file_path).convert("RGB")
         else:
-            image = Image.open(io.BytesIO(file_bytes)).convert("RGB")
+            return {"caption": "", "tags": []}
 
         device = next(blip_model.parameters()).device
 
