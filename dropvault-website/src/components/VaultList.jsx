@@ -319,8 +319,6 @@ const VaultList = ({ searchQuery = "", viewMode = "list", limit = 0, refreshTrig
   const displayedItems = limit > 0 ? filteredItems.slice(0, limit) : filteredItems;
 
   const fetchItems = async (isInitial = true) => {
-      if (isInitial && !searchQuery && filteredItems.length > 0) {}
-
       if (isInitial) setLoading(true); else setLoadingMore(true);
       
       try {
@@ -358,8 +356,15 @@ const VaultList = ({ searchQuery = "", viewMode = "list", limit = 0, refreshTrig
                   });
                   setHasMoreMap(prev => ({ ...prev, [activeFilter]: data.length === currentPageSize }));
               }
+          } else {
+              console.error("Fetch failed:", res.status);
           }
-      } catch (e) { console.error("Fetch error:", e); } finally { setLoading(false); setLoadingMore(false); } 
+      } catch (e) { 
+          console.error("Fetch error:", e); 
+      } finally { 
+          setLoading(false); 
+          setLoadingMore(false); 
+      } 
   };
 
   useEffect(() => {

@@ -20,7 +20,7 @@ from PIL import Image
 import whisper
 from io import BytesIO
 from .ai import generate_embedding, query_embedding, cosine_sim
-from .database import init_db, add_item, get_all_items, delete_item, delete_items, update_item, get_item, get_all_items_with_embeddings, get_all_tags
+from .database import init_db, add_item, get_all_items, delete_item, delete_items, update_item, get_item, get_all_items_with_embeddings, get_all_tags, get_processing_items
 from .vision import detect_objects
 
 app = FastAPI()
@@ -508,89 +508,37 @@ async def create_item(
         
     tags = ", ".join(current_tags) if current_tags else ""
 
-    text_to_embed = f"{title} "
-    if tags:
-        text_to_embed += f"Tags: {tags} "
-    if notes:
-        text_to_embed += f"Notes: {notes} "
-        
-    extracted_text = ""
-    meta_title = None
-    
-    # Preserve the original URL in file_path for link types
+    # Initial DB Insert - Pending Status
     final_file_path = file_path
     if (type == "link" or type == "video") and content and content.startswith("http"):
         final_file_path = content
 
-    if (type == "pdf" or type == "image" or type == "audio" or (type == "video" and file_path and not file_path.startswith('http'))) and file_path:
-        clean_path = file_path.replace("/uploads/", "")
-        local_path = os.path.join(UPLOAD_DIR, clean_path)
-        if os.path.exists(local_path):
-            # For video files, we use the same transcription logic as audio
-            extracted_text, meta_title, meta_image = extract_text(local_path, type)
-        else:
-            print(f"File not found: {local_path}")
-            extracted_text, meta_title, meta_image = "", None, None
-    elif type == "link" or type == "video":
-        extracted_text, meta_title, meta_image = extract_text(None, type, content)
-    else:
-        extracted_text = content or ""
-        meta_title, meta_image = None, None
+    item_id = add_item(
+        title=title, 
+        type=type, 
+        content=content or "", 
+        notes=notes, 
+        file_path=final_file_path, 
+        embedding=None, 
+        tags=tags, 
+        user_id=userId, 
+        thumbnail_path=thumbnail_path,
+        status="pending",
+        progress_stage="queued",
+        progress_percent=0,
+        progress_message="Waiting in queue..."
+    )
     
-    if meta_title:
-        if not title or title.strip() == content.strip() or title.startswith("http") or len(title) < 5:
-            title = meta_title
-
-    # Use extracted image as thumbnail if we don't have one
-    if not thumbnail_path and meta_image:
-        thumbnail_path = meta_image
-        # Ideally we should download it, but for now we store the URL.
-        # If it's Instagram, it might expire, but some public ones last.
-        # Future improvement: Download and save locally.
-
-    # --- Computer Vision Object Detection (OWL-ViT + BLIP) ---
-    vision_results = {"caption": "", "tags": []}
-    try:
-        if type == "image" and file_path and not file_path.startswith("http"):
-             # For local images
-             clean_path = file_path.replace("/uploads/", "")
-             local_path = os.path.join(UPLOAD_DIR, clean_path)
-             if os.path.exists(local_path):
-                 print(f"Running Vision on Image: {local_path}")
-                 vision_results = detect_objects(local_path)
-        
-        elif type == "video" and thumbnail_path and not thumbnail_path.startswith("http"):
-             # For videos, use the generated thumbnail
-             clean_thumb_path = thumbnail_path.replace("/uploads/", "")
-             local_thumb_path = os.path.join(UPLOAD_DIR, clean_thumb_path)
-             if os.path.exists(local_thumb_path):
-                 print(f"Running Vision on Video Thumbnail: {local_thumb_path}")
-                 vision_results = detect_objects(local_thumb_path)
-        
-        if not vision_results["caption"] and not vision_results["tags"]:
-            print("Vision returned no results. Check vision.py logs.")
-            
-    except Exception as e:
-        print(f"Vision Processing Failed: {e}")
-
-    if vision_results["caption"]:
-        extracted_text += f"\n\nAI Description: {vision_results['caption']}"
-        text_to_embed += f" Description: {vision_results['caption']} "
-        
-    if vision_results["tags"]:
-        extracted_text += f"\nDetected Objects: {', '.join(vision_results['tags'])}"
-        text_to_embed += f" Objects: {', '.join(vision_results['tags'])} "
-
-    text_to_embed += extracted_text[:8000]
-    
-    vector = generate_embedding(text_to_embed)
-    
-    item_id = add_item(title, type, extracted_text, notes, final_file_path, vector, tags, userId, thumbnail_path)
+    # Queue for processing
+    processor.add_task(item_id, final_file_path, type, userId, thumbnail_path)
     
     return {
         "id": item_id, 
-        "status": "saved", 
-        "extracted_text": extracted_text[:200] + "..." if extracted_text else ""
+        "status": "queued", 
+        "thumbnail_path": thumbnail_path,
+        "progress_stage": "queued",
+        "progress_percent": 0,
+        "progress_message": "Waiting in queue..."
     }
     
 @app.get("/api/items")
@@ -895,6 +843,12 @@ async def bulk_delete_endpoint(
     
     delete_items(request.item_ids, userId)
     return {"status": "deleted", "count": len(request.item_ids)}
+
+@app.get("/api/processing")
+async def list_processing_items(userId: str):
+    if not userId:
+        raise HTTPException(status_code=400, detail="userId is required")
+    return get_processing_items(userId)
 
 @app.get("/api/tags")
 async def get_tags(userId: str = None):

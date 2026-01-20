@@ -8,6 +8,7 @@ import UniversalDropZone from "./components/UniversalDropZone";
 import VaultList from "./components/VaultList";
 import LandingPage from "./components/LandingPage";
 import RecentTags from "./components/RecentTags";
+import GlobalActivityBar from "./components/GlobalActivityBar";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Toaster } from "@/components/ui/toaster";
 
@@ -25,31 +26,60 @@ const Dashboard = () => {
   // Handlers for UniversalDropZone
   const handleUploadStart = () => setUploadingCount(prev => prev + 1);
   const handleUploadEnd = () => setUploadingCount(prev => Math.max(0, prev - 1));
+  const handleItemCreated = (item) => {
+      setProcessingItems(prev => ({
+          ...prev,
+          [item.id]: {
+              item_id: item.id,
+              stage: item.progress_stage || 'queued',
+              percent: item.progress_percent || 0,
+              message: "Queued...",
+              status: item.status
+          }
+      }));
+      handleRefresh();
+  };
 
-  // Restore processing state on mount
+  // Restore processing state on mount & Periodic Fallback
   React.useEffect(() => {
       if (!user) return;
+      
       const fetchProcessing = async () => {
           try {
-              const res = await fetch(`/api/items?limit=20&userId=${user.uid}`);
+              const res = await fetch(`/api/processing?userId=${user.uid}`);
               if (res.ok) {
                   const items = await res.json();
                   const processing = {};
                   items.forEach(item => {
-                      if (item.status === 'pending' || item.status === 'processing') {
-                          processing[item.id] = {
-                              item_id: item.id,
-                              stage: item.progress_stage || 'queued',
-                              percent: item.progress_percent || 0,
-                              status: item.status
-                          };
-                      }
+                      processing[item.item_id] = {
+                          item_id: item.item_id,
+                          stage: item.stage || 'queued',
+                          percent: item.percent || 0,
+                          message: item.message || "Processing...",
+                          status: item.status
+                      };
                   });
-                  setProcessingItems(prev => ({ ...prev, ...processing }));
+                  // Only update if something changed to avoid unnecessary re-renders
+                  setProcessingItems(prev => {
+                      // Check if lengths differ or items changed
+                      const prevIds = Object.keys(prev);
+                      const nextIds = Object.keys(processing);
+                      if (prevIds.length !== nextIds.length) return processing;
+                      
+                      const hasChanged = nextIds.some(id => 
+                          prev[id]?.percent !== processing[id].percent || 
+                          prev[id]?.stage !== processing[id].stage
+                      );
+                      return hasChanged ? processing : prev;
+                  });
               }
-          } catch (e) { console.error(e); }
+          } catch (e) { console.error("Polling error:", e); }
       };
-      fetchProcessing();
+
+      fetchProcessing(); // Initial fetch
+      const interval = setInterval(fetchProcessing, 2000); // Poll every 2 seconds
+      
+      return () => clearInterval(interval);
   }, [user]);
 
   // Global WebSocket for Progress
@@ -99,7 +129,6 @@ const Dashboard = () => {
   };
 
   const activeTasks = Object.values(processingItems);
-  const hasActivity = uploadingCount > 0 || activeTasks.length > 0;
 
   return (
     <div className="min-vh-100 bg-light">
@@ -149,66 +178,7 @@ const Dashboard = () => {
       </Navbar>
       
       <Container fluid className="px-4 pb-5">
-        {/* GLOBAL ACTIVITY BAR */}
-        <AnimatePresence>
-            {hasActivity && (
-                <motion.div 
-                    initial={{ opacity: 0, y: -20, height: 0 }} 
-                    animate={{ opacity: 1, y: 0, height: "auto" }}
-                    exit={{ opacity: 0, y: -20, height: 0 }}
-                    className="mb-4 overflow-hidden"
-                >
-                    <div className="bg-white rounded-4 border p-3 shadow-sm">
-                        <div className="d-flex align-items-center gap-3 mb-3 px-1 border-bottom pb-2">
-                            <Loader2 size={20} className="text-primary animate-spin" />
-                            <div>
-                                <h6 className="mb-0 fw-bold text-dark">System Activity</h6>
-                                <small className="text-muted">
-                                    {uploadingCount > 0 ? `Uploading ${uploadingCount} file(s)... ` : ""}
-                                    {activeTasks.length > 0 ? `Processing ${activeTasks.length} item(s)...` : ""}
-                                </small>
-                            </div>
-                        </div>
-                        
-                        <div className="d-flex flex-column gap-2" style={{ maxHeight: "200px", overflowY: "auto" }}>
-                            {/* Uploads Placeholder */}
-                            {uploadingCount > 0 && (
-                                <div className="bg-light rounded-3 p-2 px-3 border border-opacity-10 d-flex align-items-center gap-3">
-                                    <div className="spinner-border spinner-border-sm text-secondary" role="status"></div>
-                                    <div className="flex-grow-1">
-                                        <div className="d-flex justify-content-between align-items-center">
-                                            <span className="small fw-bold text-dark">Uploading Files...</span>
-                                            <span className="small text-muted">{uploadingCount} remaining</span>
-                                        </div>
-                                        <div className="progress mt-1" style={{ height: '4px' }}>
-                                            <div className="progress-bar progress-bar-striped progress-bar-animated bg-secondary" style={{ width: '100%' }}></div>
-                                        </div>
-                                    </div>
-                                </div>
-                            )}
-
-                            {/* Processing Tasks */}
-                            {activeTasks.map(task => (
-                                <div key={task.item_id} className="bg-light rounded-3 p-2 px-3 border border-opacity-10">
-                                    <div className="d-flex justify-content-between align-items-center mb-1">
-                                        <span className="small fw-bold text-dark">Item #{task.item_id}</span>
-                                        <span className="small text-primary fw-bold text-uppercase" style={{ fontSize: '0.65rem' }}>
-                                            {task.stage} • {task.percent}%
-                                        </span>
-                                    </div>
-                                    <div className="progress" style={{ height: '4px' }}>
-                                        <div 
-                                            className="progress-bar progress-bar-striped progress-bar-animated" 
-                                            style={{ width: `${task.percent}%` }}
-                                        ></div>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-                </motion.div>
-            )}
-        </AnimatePresence>
+        <GlobalActivityBar uploadingCount={uploadingCount} activeTasks={activeTasks} />
 
         <AnimatePresence mode="wait">
             {viewMode === "dashboard" ? (
@@ -223,7 +193,7 @@ const Dashboard = () => {
                     <Row className="justify-content-center mb-5">
                         <Col xs={12}>
                             <UniversalDropZone 
-                                onItemAdded={handleRefresh} 
+                                onItemAdded={handleItemCreated} 
                                 onUploadStart={handleUploadStart}
                                 onUploadEnd={handleUploadEnd}
                             />

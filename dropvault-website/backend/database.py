@@ -58,6 +58,12 @@ def init_db():
         c.execute("SELECT progress_percent FROM items LIMIT 1")
     except sqlite3.OperationalError:
         c.execute("ALTER TABLE items ADD COLUMN progress_percent INTEGER DEFAULT 100")
+
+    # Check if progress_message column exists, if not add it
+    try:
+        c.execute("SELECT progress_message FROM items LIMIT 1")
+    except sqlite3.OperationalError:
+        c.execute("ALTER TABLE items ADD COLUMN progress_message TEXT")
     
     # Add index for faster queries
     c.execute("CREATE INDEX IF NOT EXISTS idx_user_id ON items(user_id)")
@@ -70,12 +76,12 @@ def get_db_path():
     base_dir = os.path.dirname(os.path.abspath(__file__))
     return os.path.join(base_dir, DB_NAME)
 
-def add_item(title, type, content, notes, file_path, embedding, tags="", user_id=None, thumbnail_path=None, status="completed", progress_stage="done", progress_percent=100):
+def add_item(title, type, content, notes, file_path, embedding, tags="", user_id=None, thumbnail_path=None, status="completed", progress_stage="done", progress_percent=100, progress_message=""):
     conn = sqlite3.connect(get_db_path())
     c = conn.cursor()
     embedding_json = json.dumps(embedding) if embedding else None
-    c.execute("INSERT INTO items (title, type, content, notes, file_path, embedding, tags, user_id, thumbnail_path, status, progress_stage, progress_percent) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-              (title, type, content, notes, file_path, embedding_json, tags, user_id, thumbnail_path, status, progress_stage, progress_percent))
+    c.execute("INSERT INTO items (title, type, content, notes, file_path, embedding, tags, user_id, thumbnail_path, status, progress_stage, progress_percent, progress_message) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+              (title, type, content, notes, file_path, embedding_json, tags, user_id, thumbnail_path, status, progress_stage, progress_percent, progress_message))
     item_id = c.lastrowid
     conn.commit()
     conn.close()
@@ -86,7 +92,7 @@ def get_all_items(user_id=None, limit=None, offset=None, item_type=None):
     conn.row_factory = sqlite3.Row
     c = conn.cursor()
     
-    fields = "id, title, type, content, notes, file_path, created_at, tags, user_id, thumbnail_path, status, progress_stage, progress_percent"
+    fields = "id, title, type, content, notes, file_path, created_at, tags, user_id, thumbnail_path, status, progress_stage, progress_percent, progress_message"
     query = f"SELECT {fields} FROM items WHERE user_id = ?"
     params = [user_id]
     
@@ -132,7 +138,7 @@ def get_item(item_id, user_id=None):
     conn = sqlite3.connect(get_db_path())
     conn.row_factory = sqlite3.Row
     c = conn.cursor()
-    fields = "id, title, type, content, notes, file_path, created_at, tags, user_id, thumbnail_path, status, progress_stage, progress_percent"
+    fields = "id, title, type, content, notes, file_path, created_at, tags, user_id, thumbnail_path, status, progress_stage, progress_percent, progress_message"
     if user_id:
         c.execute(f"SELECT {fields} FROM items WHERE id = ? AND user_id = ?", (item_id, user_id))
     else:
@@ -163,7 +169,7 @@ def get_all_items_with_embeddings(user_id=None):
     conn.close()
     return [dict(row) for row in rows]
 
-def update_item(item_id, title, content, tags, embedding=None, user_id=None, status=None, progress_stage=None, progress_percent=None, thumbnail_path=None):
+def update_item(item_id, title, content, tags, embedding=None, user_id=None, status=None, progress_stage=None, progress_percent=None, thumbnail_path=None, progress_message=None):
     conn = sqlite3.connect(get_db_path())
     c = conn.cursor()
     
@@ -202,6 +208,10 @@ def update_item(item_id, title, content, tags, embedding=None, user_id=None, sta
     if thumbnail_path is not None:
         updates.append("thumbnail_path = ?")
         params.append(thumbnail_path)
+
+    if progress_message is not None:
+        updates.append("progress_message = ?")
+        params.append(progress_message)
         
     if not updates:
         conn.close()
@@ -268,7 +278,7 @@ def get_processing_items(user_id):
     conn = sqlite3.connect(get_db_path())
     conn.row_factory = sqlite3.Row
     c = conn.cursor()
-    c.execute("SELECT id, status, progress_stage, progress_percent FROM items WHERE user_id = ? AND status IN ('pending', 'processing')", (user_id,))
+    c.execute("SELECT id, status, progress_stage, progress_percent, progress_message FROM items WHERE user_id = ? AND status IN ('pending', 'processing')", (user_id,))
     rows = c.fetchall()
     conn.close()
     
@@ -278,6 +288,7 @@ def get_processing_items(user_id):
             "item_id": row["id"],
             "status": row["status"],
             "stage": row["progress_stage"],
-            "percent": row["progress_percent"]
+            "percent": row["progress_percent"],
+            "message": row["progress_message"]
         })
     return results

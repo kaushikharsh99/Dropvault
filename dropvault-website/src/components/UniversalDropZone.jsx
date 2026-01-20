@@ -40,7 +40,7 @@ const UniversalDropZone = ({ onItemAdded }) => {
           const res = await fetch("/api/items", { method: "POST", body: formData });
           if (!res.ok) throw new Error("Failed to create item");
           const data = await res.json();
-          if (onItemAdded) onItemAdded();
+          if (onItemAdded) onItemAdded(data);
           return data;
       } catch (e) {
           console.error("Create item failed:", e);
