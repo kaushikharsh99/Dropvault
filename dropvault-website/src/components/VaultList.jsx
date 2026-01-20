@@ -113,7 +113,8 @@ const VaultList = ({ searchQuery = "", viewMode = "list", limit = 0, refreshTrig
       if (activeFilter === "YOUTUBE") return isYoutube;
       if (activeFilter === "IMAGE") return itemType === "image";
       if (activeFilter === "VIDEO") return isVideo && !isYoutube;
-      if (activeFilter === "DOCS") return (itemType === "pdf" || itemType === "file" || itemType === "audio");
+      if (activeFilter === "AUDIO") return itemType === "audio";
+      if (activeFilter === "DOCS") return (itemType === "pdf" || itemType === "file") && itemType !== "audio";
       if (activeFilter === "LINKS") return ((itemType === "link" || itemType === "article") && !isVideo);
       if (activeFilter === "NOTES") return itemType === "note";
       return true;
@@ -260,9 +261,9 @@ const VaultList = ({ searchQuery = "", viewMode = "list", limit = 0, refreshTrig
 
   const FilterTabs = () => (
       <div className="d-flex gap-2 mb-4 overflow-auto pb-2" style={{ scrollbarWidth: "none" }}>
-          {["ALL", "YOUTUBE", "IMAGE", "VIDEO", "DOCS", "LINKS", "NOTES"].map(f => (
+          {["ALL", "YOUTUBE", "IMAGE", "VIDEO", "AUDIO", "DOCS", "LINKS", "NOTES"].map(f => (
               <button key={f} onClick={() => setActiveFilter(f)} className={`btn btn-sm rounded-pill px-3 fw-medium transition-all ${activeFilter === f ? "btn-dark" : "btn-light text-muted border"}`} style={{ whiteSpace: "nowrap" }}>
-                  {f === "ALL" ? "All Items" : f === "YOUTUBE" ? "YouTube" : f.charAt(0) + f.slice(1).toLowerCase()}
+                  {f === "ALL" ? "All Items" : f === "YOUTUBE" ? "YouTube" : f === "AUDIO" ? "Audio" : f.charAt(0) + f.slice(1).toLowerCase()}
               </button>
           ))}
       </div>

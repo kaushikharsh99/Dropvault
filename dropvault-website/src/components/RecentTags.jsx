@@ -29,14 +29,6 @@ const RecentTags = ({ onTagSelect, selectedTags = [] }) => {
 
     if (loading || tags.length === 0) return null;
 
-    const maxVal = Math.max(...tags.map(t => t.value));
-    const minVal = Math.min(...tags.map(t => t.value));
-    
-    const getSize = (val) => {
-        if (maxVal === minVal) return 1;
-        return 0.85 + ((val - minVal) / (maxVal - minVal)) * 0.6; 
-    };
-
     return (
         <div className="mb-4">
              <div className="d-flex align-items-center justify-content-between mb-2 px-1">
@@ -57,7 +49,6 @@ const RecentTags = ({ onTagSelect, selectedTags = [] }) => {
             <div className="d-flex flex-wrap gap-2 align-items-center bg-white p-3 rounded-4 border shadow-sm">
                 {tags.slice(0, 20).map((tag, idx) => {
                     const isActive = selectedTags.includes(tag.text);
-                    const size = getSize(tag.value);
                     
                     const pastelStyle = {
                         backgroundColor: '#dcfce7', // light green-100
@@ -76,7 +67,7 @@ const RecentTags = ({ onTagSelect, selectedTags = [] }) => {
                             onClick={() => onTagSelect(tag.text)}
                             className={`btn rounded-pill px-3 py-1 transition-all d-flex align-items-center gap-2 border ${isActive ? 'shadow ring-2 ring-primary' : ''}`}
                             style={{ 
-                                fontSize: `${size}rem`,
+                                fontSize: '0.9rem',
                                 ...(!isActive ? pastelStyle : { backgroundColor: '#0d6efd', color: 'white', borderColor: '#0d6efd' })
                             }}
                         >

@@ -54,62 +54,58 @@ os.makedirs(UPLOAD_DIR, exist_ok=True)
 @app.get("/uploads/{file_path:path}")
 async def get_file(file_path: str, request: Request):
     full_path = os.path.join(UPLOAD_DIR, file_path)
-    
-    # Security check: prevent path traversal
+
     if not os.path.abspath(full_path).startswith(os.path.abspath(UPLOAD_DIR)):
         raise HTTPException(status_code=403, detail="Access denied")
-        
+
     if not os.path.exists(full_path):
         raise HTTPException(status_code=404, detail="File not found")
 
-    # Decrypt content into memory
+    # Get bytes (decrypted or plain)
     file_bytes = decrypt_file_content(full_path)
-    
     if file_bytes is None:
-        # Fallback for unencrypted files
         try:
             with open(full_path, "rb") as f:
                 file_bytes = f.read()
         except Exception:
              raise HTTPException(status_code=500, detail="Could not read file")
 
-    # Determine mime type
     mime_type, _ = mimetypes.guess_type(full_path)
-    if not mime_type:
-        mime_type = "application/octet-stream"
+    mime_type = mime_type or "application/octet-stream"
 
-    file_size = len(file_bytes)
+    size = len(file_bytes)
     range_header = request.headers.get("range")
 
-    # Handle Range Header (RFC 7233)
-    if range_header and range_header.startswith("bytes="):
-        try:
-            range_values = range_header.replace("bytes=", "").split("-")
-            start = int(range_values[0]) if range_values[0] else 0
-            end = int(range_values[1]) if len(range_values) > 1 and range_values[1] else file_size - 1
-            
-            # Boundary checks
-            end = min(end, file_size - 1)
-            if start >= file_size or start > end:
-                return Response(status_code=416, headers={"Content-Range": f"bytes */{file_size}"})
+    if range_header:
+        start, end = 0, size - 1
+        m = re.match(r"bytes=(\d*)-(\d*)", range_header)
+        if m:
+            if m.group(1):
+                start = int(m.group(1))
+            if m.group(2):
+                end = int(m.group(2))
 
-            chunk = file_bytes[start:end + 1]
-            headers = {
-                "Content-Range": f"bytes {start}-{end}/{file_size}",
-                "Accept-Ranges": "bytes",
-                "Content-Length": str(len(chunk)),
-                "Access-Control-Expose-Headers": "Content-Range"
-            }
-            return Response(content=chunk, status_code=206, media_type=mime_type, headers=headers)
-        except (ValueError, IndexError):
-            pass
-            
-    # Default: Full content
-    headers = {
-        "Accept-Ranges": "bytes",
-        "Content-Length": str(file_size)
-    }
-    return Response(content=file_bytes, media_type=mime_type, headers=headers)
+        end = min(end, size - 1)
+        chunk = file_bytes[start:end+1]
+
+        headers = {
+            "Content-Range": f"bytes {start}-{end}/{size}",
+            "Accept-Ranges": "bytes",
+            "Content-Length": str(len(chunk)),
+            "Access-Control-Expose-Headers": "Content-Range",
+        }
+
+        return Response(chunk, status_code=206, media_type=mime_type, headers=headers)
+
+    # FULL FILE
+    return Response(
+        file_bytes,
+        media_type=mime_type,
+        headers={
+            "Content-Length": str(size),
+            "Accept-Ranges": "bytes"
+        }
+    )
 
 def extract_text_from_image(path):
     print(f"Running OCR on: {path}")
@@ -538,7 +534,8 @@ def parse_search_intent(query):
         "image": "image", "images": "image", "img": "image", "pic": "image", "pics": "image", "picture": "image", "pictures": "image",
         "link": "link", "links": "link", "url": "link", "urls": "link", "website": "link",
         "pdf": "pdf", "pdfs": "pdf", "doc": "pdf", "docs": "pdf", "document": "pdf", "file": "pdf", "files": "pdf",
-        "note": "note", "notes": "note"
+        "note": "note", "notes": "note",
+        "audio": "audio", "audios": "audio", "voice": "audio", "recording": "audio"
     }
     
     words = query.split()
@@ -712,6 +709,32 @@ async def search(q: str, userId: str = None):
         if cleaned_q and item['title'] and cleaned_q in item['title'].lower():
             score = max(score, 0.9)
             explanation = "Exact title match."
+
+        # IMPROVED CONTENT MATCHING
+        if cleaned_q and item['content']:
+            content_lower = item['content'].lower()
+            
+            # 1. Exact phrase match (High confidence)
+            if cleaned_q in content_lower:
+                if score < 0.8:
+                    score = max(score, 0.8)
+                    explanation = "Exact match in content."
+                else:
+                    score += 0.1
+                    explanation += " + Content match."
+            
+            # 2. Partial keyword match (Medium confidence)
+            elif len(cleaned_q.split()) > 1:
+                query_tokens = cleaned_q.split()
+                matches = sum(1 for token in query_tokens if token in content_lower)
+                match_ratio = matches / len(query_tokens)
+                
+                if match_ratio >= 0.75: # 75% of words found
+                     score = max(score, 0.6)
+                     explanation += " Most keywords found in content."
+                elif match_ratio >= 0.5: # 50% of words found
+                     score = max(score, 0.4)
+                     explanation += " Some keywords found in content."
 
         if score > 0.25 or (not cleaned_q and (start_date or type_filter)):
              results.append({**item, "score": float(score), "explanation": explanation + (f" ({filter_desc})" if filter_desc else "")})
