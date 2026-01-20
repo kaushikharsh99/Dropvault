@@ -67,11 +67,9 @@ def extract_text_from_image(path):
             return ""
         
         # Preprocessing for better OCR
+        # Optimization: Tesseract 4+ works best with raw grayscale images.
+        # Removing expensive Blur/Thresholding significantly speeds up CPU processing.
         gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-        # Apply slight blur to reduce noise
-        gray = cv2.medianBlur(gray, 3)
-        # Thresholding
-        gray = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)[1]
         
         # Run Tesseract
         text = pytesseract.image_to_string(gray)

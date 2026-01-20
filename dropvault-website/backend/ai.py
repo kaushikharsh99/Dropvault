@@ -1,9 +1,9 @@
 from sentence_transformers import SentenceTransformer
 import numpy as np
 
-# Load Text-only model once
-print("Loading Text AI Model (all-MiniLM-L6-v2)...")
-text_model = SentenceTransformer("all-MiniLM-L6-v2")
+# Load Text-only model once (Force CPU to save VRAM for Vision/Whisper)
+print("Loading Text AI Model (all-MiniLM-L6-v2) on CPU...")
+text_model = SentenceTransformer("all-MiniLM-L6-v2", device="cpu")
 print("AI Model Loaded.")
 
 def generate_embedding(text):

@@ -9,6 +9,7 @@ import VaultList from "./components/VaultList";
 import LandingPage from "./components/LandingPage";
 import RecentTags from "./components/RecentTags";
 import GlobalActivityBar from "./components/GlobalActivityBar";
+import ErrorBoundary from "./components/ErrorBoundary";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Toaster } from "@/components/ui/toaster";
 
@@ -20,12 +21,15 @@ const Dashboard = () => {
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [processingItems, setProcessingItems] = useState({}); // item_id -> progress data
   const [uploadingCount, setUploadingCount] = useState(0); // Number of files currently uploading
+  const [queueSize, setQueueSize] = useState(0); // Number of files waiting in queue
 
   const handleRefresh = () => setRefreshTrigger(prev => prev + 1);
 
   // Handlers for UniversalDropZone
   const handleUploadStart = () => setUploadingCount(prev => prev + 1);
   const handleUploadEnd = () => setUploadingCount(prev => Math.max(0, prev - 1));
+  const handleQueueChange = (size) => setQueueSize(size);
+  
   const handleItemCreated = (item) => {
       setProcessingItems(prev => ({
           ...prev,
@@ -37,6 +41,7 @@ const Dashboard = () => {
               status: item.status
           }
       }));
+      // Trigger list refresh immediately to show "queued" item
       handleRefresh();
   };
 
@@ -88,16 +93,30 @@ const Dashboard = () => {
     let ws;
     try {
         const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-        ws = new WebSocket(`${protocol}//${window.location.host}/ws/progress/${user.uid}`);
+        // Hack: Force port 8000 for local dev to bypass Vite proxy issues
+        const host = window.location.hostname === 'localhost' ? 'localhost:8000' : window.location.host;
+        ws = new WebSocket(`${protocol}//${host}/ws/progress/${user.uid}`);
         ws.onmessage = (event) => {
             const data = JSON.parse(event.data);
+            
             if (data.status === "completed" || data.status === "failed") {
-                setProcessingItems(prev => {
-                    const next = { ...prev };
-                    delete next[data.item_id];
-                    return next;
-                });
+                // Update to 100% / Done state first
+                setProcessingItems(prev => ({
+                    ...prev,
+                    [data.item_id]: data
+                }));
+                
+                // Refresh list to show final data
                 handleRefresh();
+
+                // Remove after delay so user sees "Done"
+                setTimeout(() => {
+                    setProcessingItems(prev => {
+                        const next = { ...prev };
+                        delete next[data.item_id];
+                        return next;
+                    });
+                }, 2000);
             } else {
                 setProcessingItems(prev => ({
                     ...prev,
@@ -178,7 +197,11 @@ const Dashboard = () => {
       </Navbar>
       
       <Container fluid className="px-4 pb-5">
-        <GlobalActivityBar uploadingCount={uploadingCount} activeTasks={activeTasks} />
+        <GlobalActivityBar 
+            uploadingCount={uploadingCount} 
+            queueSize={queueSize} 
+            activeTasks={activeTasks} 
+        />
 
         <AnimatePresence mode="wait">
             {viewMode === "dashboard" ? (
@@ -196,6 +219,7 @@ const Dashboard = () => {
                                 onItemAdded={handleItemCreated} 
                                 onUploadStart={handleUploadStart}
                                 onUploadEnd={handleUploadEnd}
+                                onQueueChange={handleQueueChange}
                             />
                         </Col>
                     </Row>
@@ -267,7 +291,9 @@ function App() {
     <BrowserRouter>
       <TooltipProvider>
         <Toaster />
-        {user ? <Dashboard /> : <LandingPage />}
+        <ErrorBoundary>
+            {user ? <Dashboard /> : <LandingPage />}
+        </ErrorBoundary>
       </TooltipProvider>
     </BrowserRouter>
   );

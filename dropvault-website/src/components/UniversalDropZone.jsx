@@ -4,7 +4,7 @@ import { Form } from "react-bootstrap";
 import { motion, AnimatePresence } from "framer-motion";
 import { UploadCloud, FileText, Link as LinkIcon, Image as ImageIcon, Loader2, Plus, X } from "lucide-react";
 
-const UniversalDropZone = ({ onItemAdded, onUploadStart, onUploadEnd }) => {
+const UniversalDropZone = ({ onItemAdded, onUploadStart, onUploadEnd, onQueueChange }) => {
   const { user } = useAuth();
   const [inputVal, setInputVal] = useState("");
   const [tags, setTags] = useState("");
@@ -12,10 +12,17 @@ const UniversalDropZone = ({ onItemAdded, onUploadStart, onUploadEnd }) => {
   const fileInputRef = useRef(null);
   const textareaRef = useRef(null);
 
-  // Queue State
-  const [uploadQueue, setUploadQueue] = useState([]);
-  const [activeUploads, setActiveUploads] = useState(0);
-  const MAX_CONCURRENT_UPLOADS = 3;
+  // Optimized Queue State
+  const fileQueueRef = useRef([]); 
+  const activeUploadsRef = useRef(0); // Ref for synchronous tracking
+  const [queueLength, setQueueSize] = useState(0);
+  const [activeUploadsState, setActiveUploadsState] = useState(0); // For UI only
+  const MAX_CONCURRENT_UPLOADS = 10;
+
+  // Notify parent of queue size changes
+  React.useEffect(() => {
+      if (onQueueChange) onQueueChange(queueLength);
+  }, [queueLength, onQueueChange]);
 
   // Auto-expand textarea height
   React.useEffect(() => {
@@ -25,18 +32,31 @@ const UniversalDropZone = ({ onItemAdded, onUploadStart, onUploadEnd }) => {
     }
   }, [inputVal]);
 
-  // Queue Processor
-  React.useEffect(() => {
-      if (uploadQueue.length > 0 && activeUploads < MAX_CONCURRENT_UPLOADS) {
-          const nextFile = uploadQueue[0];
-          setUploadQueue(prev => prev.slice(1));
-          setActiveUploads(prev => prev + 1);
+  // Main Queue Processor
+  const processQueue = () => {
+      // Loop to fill all available slots immediately
+      while (fileQueueRef.current.length > 0 && activeUploadsRef.current < MAX_CONCURRENT_UPLOADS) {
+          const nextFile = fileQueueRef.current.shift();
           
+          // Update Counters
+          activeUploadsRef.current += 1;
+          setActiveUploadsState(activeUploadsRef.current);
+          setQueueSize(fileQueueRef.current.length);
+          
+          // Start Upload
           uploadFile(nextFile).finally(() => {
-              setActiveUploads(prev => prev - 1);
+              activeUploadsRef.current -= 1;
+              setActiveUploadsState(activeUploadsRef.current);
+              // Trigger next item when one finishes
+              processQueue();
           });
       }
-  }, [uploadQueue, activeUploads]);
+  };
+
+  // Trigger processing when files are added
+  React.useEffect(() => {
+      processQueue();
+  }, [queueLength]); // Run when queue size changes (files added)
 
   const detectType = (content) => {
     if (content.match(/^https?:\/\//)) return "link";
@@ -85,7 +105,7 @@ const UniversalDropZone = ({ onItemAdded, onUploadStart, onUploadEnd }) => {
       console.error("Error saving file:", error);
     } finally {
       if (onUploadEnd) onUploadEnd();
-      if (uploadQueue.length === 0 && activeUploads <= 1) {
+      if (fileQueueRef.current.length === 0 && activeUploadsRef.current <= 0) {
           setInputVal("");
           setTags(""); 
       }
@@ -94,7 +114,11 @@ const UniversalDropZone = ({ onItemAdded, onUploadStart, onUploadEnd }) => {
 
   const handleFileUpload = (e) => {
     if (e.target.files && e.target.files.length > 0) {
-        setUploadQueue(prev => [...prev, ...Array.from(e.target.files)]);
+        const files = Array.from(e.target.files);
+        fileQueueRef.current.push(...files);
+        setQueueSize(fileQueueRef.current.length);
+        // Trigger processing immediately
+        processQueue();
     }
   };
 

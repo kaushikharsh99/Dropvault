@@ -92,7 +92,6 @@ const GridItemCard = ({ item, isSelectionMode, isSelected, onSelect, onClick }) 
     const ytId = getYoutubeId(url);
     const itemType = (item.type || "").toLowerCase();
     const isVid = ytId || getVimeoId(url) || getDailymotionId(url) || getTwitchId(url) || isTikTokUrl(url) || isInstagramReel(url) || isFacebookUrl(url) || itemType === 'video';
-    const isProcessing = item.status && item.status !== "completed" && item.status !== "failed";
 
     return (
     <motion.div 
@@ -135,24 +134,6 @@ const GridItemCard = ({ item, isSelectionMode, isSelected, onSelect, onClick }) 
                  )
              ) :
              <div className="opacity-50 transform scale-125">{getIcon(item.type, 48)}</div>}
-
-            {isProcessing && (
-                <div className="position-absolute bottom-0 start-0 w-100 bg-white bg-opacity-90 border-top p-2" style={{ zIndex: 5 }}>
-                    <div className="d-flex justify-content-between align-items-center mb-1">
-                        <small className="fw-bold text-primary" style={{ fontSize: "0.65rem" }}>
-                            {item.progress_stage ? item.progress_stage.toUpperCase() : "PROCESSING"}
-                        </small>
-                        <small className="text-muted" style={{ fontSize: "0.65rem" }}>{item.progress_percent || 0}%</small>
-                    </div>
-                    <div className="progress" style={{ height: "4px" }}>
-                        <div 
-                            className="progress-bar progress-bar-striped progress-bar-animated" 
-                            role="progressbar" 
-                            style={{ width: `${item.progress_percent || 5}%` }}
-                        ></div>
-                    </div>
-                </div>
-            )}
         </div>
         <div className="p-3 border-top">
             <h6 className="fw-semibold mb-1 text-truncate text-dark">{item.title || "Untitled"}</h6>
@@ -166,7 +147,6 @@ const GridItemCard = ({ item, isSelectionMode, isSelected, onSelect, onClick }) 
 };
 
 const ItemCard = ({ item, isSelectionMode, isSelected, onSelect, onClick }) => {
-  const isProcessing = item.status && item.status !== "completed" && item.status !== "failed";
   return (
   <motion.div 
       initial={{ opacity: 0, y: 10 }} 
@@ -182,33 +162,18 @@ const ItemCard = ({ item, isSelectionMode, isSelected, onSelect, onClick }) => {
       )}
       <div className="p-2 bg-light rounded-circle d-flex align-items-center justify-content-center position-relative">
           {getIcon(item.type)}
-          {isProcessing && (
-              <div className="position-absolute top-0 start-0 w-100 h-100 rounded-circle border border-2 border-primary border-top-0 border-start-0 animate-spin"></div>
-          )}
       </div>
       <div className="flex-grow-1 overflow-hidden">
           <h6 className="fw-semibold mb-1 text-truncate text-dark">{item.title || "Untitled"}</h6>
           <div className="d-flex align-items-center gap-2 text-muted small">
               <span className="text-uppercase fw-bold" style={{ fontSize: "0.7rem" }}>{item.type}</span>
               <span>•</span>
-              {isProcessing ? (
-                  <span className="text-primary fw-bold">
-                      {item.progress_stage ? item.progress_stage.toUpperCase() : "PROCESSING"} ({item.progress_percent || 0}%)
-                  </span>
-              ) : (
-                  <span>{formatRelativeTime(item.created_at)}</span>
-              )}
+              <span>{formatRelativeTime(item.created_at)}</span>
           </div>
-          {isProcessing && (
-               <div className="progress mt-2" style={{ height: "3px" }}>
-                    <div className="progress-bar bg-primary" style={{ width: `${item.progress_percent || 5}%` }}></div>
-               </div>
-          )}
       </div>
   </motion.div>
   );
 };
-
 // --- Main Component ---
 
 const VaultList = ({ searchQuery = "", viewMode = "list", limit = 0, refreshTrigger }) => {
@@ -234,7 +199,9 @@ const VaultList = ({ searchQuery = "", viewMode = "list", limit = 0, refreshTrig
     let ws;
     try {
         const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-        ws = new WebSocket(`${protocol}//${window.location.host}/ws/progress/${user.uid}`);
+        // Hack: Force port 8000 for local dev to bypass Vite proxy issues
+        const host = window.location.hostname === 'localhost' ? 'localhost:8000' : window.location.host;
+        ws = new WebSocket(`${protocol}//${host}/ws/progress/${user.uid}`);
         
         ws.onmessage = (event) => {
             const data = JSON.parse(event.data);
