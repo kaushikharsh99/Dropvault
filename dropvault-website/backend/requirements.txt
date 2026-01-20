@@ -13,3 +13,8 @@ opencv-python
 cryptography
 python-dotenv
 openai-whisper
+transformers
+torch
+timm
+bitsandbytes
+accelerate

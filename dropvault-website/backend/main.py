@@ -20,6 +20,7 @@ from io import BytesIO
 from .ai import generate_embedding, query_embedding, cosine_sim
 from .database import init_db, add_item, get_all_items, delete_item, update_item, get_item, get_all_items_with_embeddings, get_all_tags
 from .crypto import encrypt_file, decrypt_file_content
+from .vision import detect_objects
 
 app = FastAPI()
 
@@ -142,6 +143,61 @@ def extract_text_from_image(path):
         print(f"OCR Error: {e}")
         return ""
 
+def generate_video_thumbnail(video_path, thumbnail_path):
+    print(f"Generating thumbnail for: {video_path}")
+    try:
+        # We need a physical file for OpenCV VideoCapture.
+        # Since files are encrypted, decrypt to a temp file.
+        temp_path = None
+        file_bytes = decrypt_file_content(video_path)
+        
+        if file_bytes is None:
+             # Fallback for unencrypted
+             if os.path.exists(video_path):
+                 temp_path = video_path # Use original if not encrypted
+             else:
+                 return False
+        else:
+            # Write decrypted bytes to temp file
+            temp_path = video_path + ".tmp_thumb" + os.path.splitext(video_path)[1]
+            with open(temp_path, "wb") as f:
+                f.write(file_bytes)
+
+        cap = cv2.VideoCapture(temp_path)
+        if not cap.isOpened():
+            print("Could not open video for thumbnail generation")
+            return False
+
+        # Get total frame count
+        total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+        
+        # Seek to 10% or 1st second to avoid black start frames
+        seek_frame = min(30, total_frames // 10)
+        cap.set(cv2.CAP_PROP_POS_FRAMES, seek_frame)
+        
+        ret, frame = cap.read()
+        if ret:
+            # Save thumbnail
+            cv2.imwrite(thumbnail_path, frame)
+            print(f"Thumbnail saved to: {thumbnail_path}")
+            cap.release()
+            return True
+        else:
+            print("Could not read frame for thumbnail")
+            cap.release()
+            return False
+
+    except Exception as e:
+        print(f"Thumbnail Generation Error: {e}")
+        return False
+    finally:
+        # Cleanup temp file if created
+        if file_bytes is not None and temp_path and os.path.exists(temp_path):
+            try:
+                os.remove(temp_path)
+            except:
+                pass
+
 def transcribe_audio(file_path):
     """
     Transcribe audio file using OpenAI Whisper.
@@ -220,16 +276,16 @@ def extract_text(file_path, type, content=None):
             if extracted_links:
                 text += "\n\n--- Extracted Links ---\n" + "\n".join(extracted_links)
                 
-            return text, None
+            return text, None, None
         except Exception as e:
             print(f"PDF Extraction Error: {e}")
-            return "", None
+            return "", None, None
     elif type == "image":
         text = extract_text_from_image(file_path)
-        return text, None
+        return text, None, None
     elif type == "audio" or type == "video":
         text = transcribe_audio(file_path)
-        return text, None
+        return text, None, None
     elif type == "link" or (type == "video" and content and content.startswith("http")):
         try:
             headers = {
@@ -244,7 +300,8 @@ def extract_text(file_path, type, content=None):
                 "author": None,
                 "date": None,
                 "site_name": None,
-                "keywords": None
+                "keywords": None,
+                "image": None
             }
 
             def get_content(props, attrs=None):
@@ -261,8 +318,9 @@ def extract_text(file_path, type, content=None):
             meta["author"] = get_content(["article:author", "author", "twitter:creator"])
             meta["date"] = get_content(["article:published_time", "date", "pubdate", "og:pubdate"])
             meta["keywords"] = get_content(["keywords", "article:tag"])
+            meta["image"] = get_content(["og:image", "twitter:image"])
 
-            if not meta["date"] or not meta["author"]:
+            if not meta["date"] or not meta["author"] or not meta["title"] or not meta["description"]:
                 try:
                     ld_scripts = soup.find_all("script", type="application/ld+json")
                     for script in ld_scripts:
@@ -278,8 +336,31 @@ def extract_text(file_path, type, content=None):
                                         if isinstance(auth, dict): meta["author"] = auth.get("name")
                                         elif isinstance(auth, list) and auth: meta["author"] = auth[0].get("name")
                                         elif isinstance(auth, str): meta["author"] = auth
+                                    if not meta["image"]:
+                                         meta["image"] = data.get("image") or data.get("thumbnailUrl")
+                                    if not meta["title"]:
+                                        meta["title"] = data.get("name") or data.get("headline")
+                                    if not meta["description"]:
+                                        meta["description"] = data.get("description") or data.get("articleBody")
                             except: pass
                 except: pass
+
+            # Fallback for title/desc if still empty
+            if not meta["title"] and soup.title:
+                meta["title"] = soup.title.string.strip()
+            
+            # Clean up title (remove site names)
+            if meta["title"]:
+                separators = [" | ", " - ", " : ", " • ", " on Instagram", " on TikTok"]
+                for sep in separators:
+                    if sep in meta["title"]:
+                         # Check if the part after separator is the site name or similar generic text
+                         parts = meta["title"].split(sep)
+                         if len(parts) > 1:
+                             # Heuristic: if the last part is short or matches site name, remove it
+                             last = parts[-1].strip().lower()
+                             if last in ["instagram", "tiktok", "youtube", "twitter", "x", "facebook", "linkedin"] or len(last) < 15:
+                                 meta["title"] = sep.join(parts[:-1]).strip()
 
             page_title = meta["title"]
 
@@ -310,14 +391,14 @@ def extract_text(file_path, type, content=None):
             if extracted_links:
                 final_parts.append("\n\n--- Extracted Links ---\n" + "\n".join(list(extracted_links)[:20])) # Limit to 20 links
 
-            return "\n".join(final_parts), page_title
+            return "\n".join(final_parts), page_title, meta["image"]
 
         except Exception as e:
             print(f"Link Extraction Error: {e}")
-            return content, None
+            return content, None, None
     elif type in ["note", "text"]:
-        return content or "", None
-    return content or "", None
+        return content or "", None, None
+    return content or "", None, None
 
 
 @app.post("/api/upload")
@@ -336,6 +417,24 @@ async def upload_file(file: UploadFile = File(...), userId: str = Form(None)):
     with open(file_path, "wb") as buffer:
         shutil.copyfileobj(file.file, buffer)
         
+    # Generate Thumbnail for Video (Before Encryption)
+    thumbnail_url = None
+    mime_type = file.content_type
+    if not mime_type:
+        mime_type, _ = mimetypes.guess_type(file.filename)
+        
+    if mime_type and mime_type.startswith('video/'):
+        thumb_dir = os.path.join(os.path.dirname(file_path), "thumbnails")
+        os.makedirs(thumb_dir, exist_ok=True)
+        thumb_filename = f"{filename}.jpg"
+        thumb_path = os.path.join(thumb_dir, thumb_filename)
+        
+        if generate_video_thumbnail(file_path, thumb_path):
+            if userId:
+                thumbnail_url = f"/uploads/{userId}/thumbnails/{thumb_filename}"
+            else:
+                thumbnail_url = f"/uploads/thumbnails/{thumb_filename}"
+
     # Encrypt immediately after saving
     encrypt_file(file_path)
     
@@ -344,7 +443,8 @@ async def upload_file(file: UploadFile = File(...), userId: str = Form(None)):
         "fileUrl": file_url, 
         "filename": filename, 
         "originalName": file.filename,
-        "mimetype": file.content_type
+        "mimetype": file.content_type,
+        "thumbnailUrl": thumbnail_url
     }
 
 def detect_social_platform(url):
@@ -428,6 +528,7 @@ async def create_item(
     content: str = Form(None),
     notes: str = Form(None),
     file_path: str = Form(None),
+    thumbnail_path: str = Form(None),
     tags: str = Form(None),
     userId: str = Form(None)
 ):
@@ -443,6 +544,23 @@ async def create_item(
         if "youtube.com" in content or "youtu.be" in content:
             type = "video"
             
+    # Infer thumbnail path if not provided and it is a video file
+    if not thumbnail_path and type == "video" and file_path and not file_path.startswith("http"):
+        try:
+            parts = file_path.split('/')
+            filename = parts[-1]
+            parent_dir = "/".join(parts[:-1])
+            possible_thumb = f"{parent_dir}/thumbnails/{filename}.jpg"
+            
+            # Verify existence
+            rel_path = possible_thumb.replace("/uploads/", "", 1).lstrip("/")
+            full_thumb_path = os.path.join(UPLOAD_DIR, rel_path)
+            
+            if os.path.exists(full_thumb_path):
+                thumbnail_path = possible_thumb
+        except Exception as e:
+            print(f"Error inferring thumbnail: {e}")
+
     # Auto-tagging for social media
     detected_platform = None
     if (type == "link" or type == "video") and content:
@@ -474,23 +592,65 @@ async def create_item(
         local_path = os.path.join(UPLOAD_DIR, clean_path)
         if os.path.exists(local_path):
             # For video files, we use the same transcription logic as audio
-            extracted_text, meta_title = extract_text(local_path, type)
+            extracted_text, meta_title, meta_image = extract_text(local_path, type)
         else:
             print(f"File not found: {local_path}")
+            extracted_text, meta_title, meta_image = "", None, None
     elif type == "link" or type == "video":
-        extracted_text, meta_title = extract_text(None, type, content)
+        extracted_text, meta_title, meta_image = extract_text(None, type, content)
     else:
         extracted_text = content or ""
+        meta_title, meta_image = None, None
     
     if meta_title:
         if not title or title.strip() == content.strip() or title.startswith("http") or len(title) < 5:
             title = meta_title
 
+    # Use extracted image as thumbnail if we don't have one
+    if not thumbnail_path and meta_image:
+        thumbnail_path = meta_image
+        # Ideally we should download it, but for now we store the URL.
+        # If it's Instagram, it might expire, but some public ones last.
+        # Future improvement: Download and save locally.
+
+    # --- Computer Vision Object Detection (OWL-ViT + BLIP) ---
+    vision_results = {"caption": "", "tags": []}
+    try:
+        if type == "image" and file_path and not file_path.startswith("http"):
+             # For local images
+             clean_path = file_path.replace("/uploads/", "")
+             local_path = os.path.join(UPLOAD_DIR, clean_path)
+             if os.path.exists(local_path):
+                 print(f"Running Vision on Image: {local_path}")
+                 vision_results = detect_objects(local_path)
+        
+        elif type == "video" and thumbnail_path and not thumbnail_path.startswith("http"):
+             # For videos, use the generated thumbnail
+             clean_thumb_path = thumbnail_path.replace("/uploads/", "")
+             local_thumb_path = os.path.join(UPLOAD_DIR, clean_thumb_path)
+             if os.path.exists(local_thumb_path):
+                 print(f"Running Vision on Video Thumbnail: {local_thumb_path}")
+                 vision_results = detect_objects(local_thumb_path)
+        
+        if not vision_results["caption"] and not vision_results["tags"]:
+            print("Vision returned no results. Check vision.py logs.")
+            
+    except Exception as e:
+        print(f"Vision Processing Failed: {e}")
+
+    if vision_results["caption"]:
+        extracted_text += f"\n\nAI Description: {vision_results['caption']}"
+        text_to_embed += f" Description: {vision_results['caption']} "
+        
+    if vision_results["tags"]:
+        extracted_text += f"\nDetected Objects: {', '.join(vision_results['tags'])}"
+        text_to_embed += f" Objects: {', '.join(vision_results['tags'])} "
+
     text_to_embed += extracted_text[:8000]
     
     vector = generate_embedding(text_to_embed)
     
-    item_id = add_item(title, type, extracted_text, notes, final_file_path, vector, tags, userId)
+    item_id = add_item(title, type, extracted_text, notes, final_file_path, vector, tags, userId, thumbnail_path)
     
     return {
         "id": item_id, 

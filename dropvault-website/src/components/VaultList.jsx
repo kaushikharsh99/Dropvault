@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useAuth } from "../AuthContext";
 import { Modal, Button, Badge, Row, Col } from "react-bootstrap";
 import { motion, AnimatePresence } from "framer-motion";
-import { FileText, Image as ImageIcon, Link as LinkIcon, Video, File, Trash2, ExternalLink, ArrowLeft, Filter, Edit2, Save, X, Loader2 } from "lucide-react";
+import { FileText, Image as ImageIcon, Link as LinkIcon, Video, File, Trash2, ExternalLink, ArrowLeft, Filter, Edit2, Save, X, Loader2, Mic, Play } from "lucide-react";
 
 const VaultList = ({ searchQuery = "", viewMode = "list", limit = 0, refreshTrigger }) => {
   const { user } = useAuth();
@@ -94,7 +94,7 @@ const VaultList = ({ searchQuery = "", viewMode = "list", limit = 0, refreshTrig
         case "pdf": return <FileText {...props} className="text-orange-500" />;
         case "link": return <LinkIcon {...props} className="text-blue-500" />;
         case "article": return <FileText {...props} className="text-gray-500" />;
-        case "audio": return <FileText {...props} className="text-green-500" />;
+        case "audio": return <Mic {...props} className="text-green-500" />;
         default: return <File {...props} className="text-gray-400" />;
     }
   };
@@ -278,8 +278,28 @@ const VaultList = ({ searchQuery = "", viewMode = "list", limit = 0, refreshTrig
       <motion.div layout initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} whileHover={{ y: -4, boxShadow: "0 8px 20px rgba(0,0,0,0.08)" }} onClick={() => setSelectedItem(item)} className="bg-white rounded-4 border h-100 overflow-hidden cursor-pointer d-flex flex-column" style={{ minHeight: "200px" }}>
           <div className="flex-grow-1 bg-light d-flex align-items-center justify-content-center position-relative overflow-hidden" style={{ minHeight: "140px" }}>
               {itemType === "image" ? <img src={item.file_path} alt="" className="w-100 h-100 object-fit-cover position-absolute" /> :
-               ytId ? <img src={`https://img.youtube.com/vi/${ytId}/hqdefault.jpg`} alt="" className="w-100 h-100 object-fit-cover position-absolute" /> :
-               isVid ? <div className="w-100 h-100 d-flex align-items-center justify-content-center bg-dark"><Video size={48} className="text-white opacity-75" /></div> :
+               ytId ? (
+                   <React.Fragment>
+                       <img src={`https://img.youtube.com/vi/${ytId}/hqdefault.jpg`} alt="" className="w-100 h-100 object-fit-cover position-absolute" />
+                       <div className="position-absolute bg-dark bg-opacity-50 rounded-circle p-2 d-flex align-items-center justify-content-center" style={{ width: "40px", height: "40px" }}>
+                           <Play size={20} className="text-white fill-white" />
+                       </div>
+                   </React.Fragment>
+               ) :
+               isVid ? (
+                   item.thumbnail_path ? (
+                       <React.Fragment>
+                            <img src={item.thumbnail_path} alt="" className="w-100 h-100 object-fit-cover position-absolute" />
+                            <div className="position-absolute bg-dark bg-opacity-50 rounded-circle p-2 d-flex align-items-center justify-content-center" style={{ width: "40px", height: "40px" }}>
+                                <Play size={20} className="text-white fill-white" />
+                            </div>
+                       </React.Fragment>
+                   ) : (
+                       <div className="w-100 h-100 d-flex align-items-center justify-content-center bg-dark">
+                           <Video size={48} className="text-white opacity-75" />
+                       </div>
+                   )
+               ) :
                <div className="opacity-50 transform scale-125">{getIcon(item.type, 48)}</div>}
           </div>
           <div className="p-3 border-top">
@@ -310,7 +330,13 @@ const VaultList = ({ searchQuery = "", viewMode = "list", limit = 0, refreshTrig
       {viewMode === "grouped" && limit === 0 && <FilterTabs />}
       <AnimatePresence mode="popLayout">
           {loading ? (
-              <div className="w-100" key="loading">
+              <motion.div 
+                key="loading"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="w-100"
+              >
                   <Row className="g-3">
                       {[...Array(limit > 0 ? limit : 8)].map((_, i) => (
                           <Col xs={6} md={4} lg={3} key={i}>
@@ -318,7 +344,7 @@ const VaultList = ({ searchQuery = "", viewMode = "list", limit = 0, refreshTrig
                           </Col>
                       ))}
                   </Row>
-              </div>
+              </motion.div>
           ) : filteredItems.length === 0 ? (
               <motion.div key="empty" className="text-center py-5 text-muted">
                   <File size={48} className="mb-3 opacity-25" />
@@ -408,7 +434,14 @@ const VaultList = ({ searchQuery = "", viewMode = "list", limit = 0, refreshTrig
                                                     variant="outline-secondary" 
                                                     size="sm" 
                                                     onClick={() => {
-                                                        navigator.clipboard.writeText(selectedItem.content);
+                                                        let text = selectedItem.content || "";
+                                                        if (text.includes("AI Description:")) {
+                                                            text = text.split("AI Description:")[0];
+                                                        }
+                                                        if (text.includes("Detected Objects:")) {
+                                                            text = text.split("Detected Objects:")[0];
+                                                        }
+                                                        navigator.clipboard.writeText(text.trim());
                                                     }}
                                                     className="d-flex align-items-center gap-2"
                                                 >

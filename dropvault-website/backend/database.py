@@ -34,6 +34,12 @@ def init_db():
         c.execute("SELECT user_id FROM items LIMIT 1")
     except sqlite3.OperationalError:
         c.execute("ALTER TABLE items ADD COLUMN user_id TEXT")
+        
+    # Check if thumbnail_path column exists, if not add it
+    try:
+        c.execute("SELECT thumbnail_path FROM items LIMIT 1")
+    except sqlite3.OperationalError:
+        c.execute("ALTER TABLE items ADD COLUMN thumbnail_path TEXT")
     
     # Add index for faster queries
     c.execute("CREATE INDEX IF NOT EXISTS idx_user_id ON items(user_id)")
@@ -46,12 +52,12 @@ def get_db_path():
     base_dir = os.path.dirname(os.path.abspath(__file__))
     return os.path.join(base_dir, DB_NAME)
 
-def add_item(title, type, content, notes, file_path, embedding, tags="", user_id=None):
+def add_item(title, type, content, notes, file_path, embedding, tags="", user_id=None, thumbnail_path=None):
     conn = sqlite3.connect(get_db_path())
     c = conn.cursor()
     embedding_json = json.dumps(embedding) if embedding else None
-    c.execute("INSERT INTO items (title, type, content, notes, file_path, embedding, tags, user_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-              (title, type, content, notes, file_path, embedding_json, tags, user_id))
+    c.execute("INSERT INTO items (title, type, content, notes, file_path, embedding, tags, user_id, thumbnail_path) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+              (title, type, content, notes, file_path, embedding_json, tags, user_id, thumbnail_path))
     item_id = c.lastrowid
     conn.commit()
     conn.close()
@@ -62,7 +68,7 @@ def get_all_items(user_id=None, limit=None, offset=None, item_type=None):
     conn.row_factory = sqlite3.Row
     c = conn.cursor()
     
-    fields = "id, title, type, content, notes, file_path, created_at, tags, user_id"
+    fields = "id, title, type, content, notes, file_path, created_at, tags, user_id, thumbnail_path"
     query = f"SELECT {fields} FROM items WHERE user_id = ?"
     params = [user_id]
     
@@ -108,7 +114,7 @@ def get_item(item_id, user_id=None):
     conn = sqlite3.connect(get_db_path())
     conn.row_factory = sqlite3.Row
     c = conn.cursor()
-    fields = "id, title, type, content, notes, file_path, created_at, tags, user_id"
+    fields = "id, title, type, content, notes, file_path, created_at, tags, user_id, thumbnail_path"
     if user_id:
         c.execute(f"SELECT {fields} FROM items WHERE id = ? AND user_id = ?", (item_id, user_id))
     else:
