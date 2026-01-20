@@ -167,6 +167,27 @@ def update_item(item_id, title, content, tags, embedding=None, user_id=None):
     conn.commit()
     conn.close()
 
+def delete_items(item_ids, user_id=None):
+    conn = sqlite3.connect(get_db_path())
+    c = conn.cursor()
+    
+    if not item_ids:
+        conn.close()
+        return
+
+    placeholders = ', '.join(['?'] * len(item_ids))
+    
+    if user_id:
+        query = f"DELETE FROM items WHERE id IN ({placeholders}) AND user_id = ?"
+        params = item_ids + [user_id]
+        c.execute(query, tuple(params))
+    else:
+        query = f"DELETE FROM items WHERE id IN ({placeholders})"
+        c.execute(query, tuple(item_ids))
+        
+    conn.commit()
+    conn.close()
+
 def get_all_tags(user_id):
     conn = sqlite3.connect(get_db_path())
     conn.row_factory = sqlite3.Row

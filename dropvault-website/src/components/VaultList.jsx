@@ -2,57 +2,70 @@ import React, { useState, useEffect } from "react";
 import { useAuth } from "../AuthContext";
 import { Modal, Button, Badge, Row, Col } from "react-bootstrap";
 import { motion, AnimatePresence } from "framer-motion";
-import { FileText, Image as ImageIcon, Link as LinkIcon, Video, File, Trash2, ExternalLink, ArrowLeft, Filter, Edit2, Save, X, Loader2, Mic, Play } from "lucide-react";
+import { FileText, Image as ImageIcon, Link as LinkIcon, Video, File, Trash2, ExternalLink, ArrowLeft, Filter, Edit2, Save, X, Loader2, Mic, Play, CheckSquare, Square } from "lucide-react";
 
-const VaultList = ({ searchQuery = "", viewMode = "list", limit = 0, refreshTrigger }) => {
-  const { user } = useAuth();
-  
-  const [itemsPool, setItemsPool] = useState([]);
-  const [searchResults, setSearchResults] = useState([]);
-  const [isSearching, setIsSearching] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [loadingMore, setLoadingMore] = useState(false);
-  const [activeFilter, setActiveFilter] = useState("ALL");
-  const [hasMoreMap, setHasMoreMap] = useState({});
-  const [selectedItem, setSelectedItem] = useState(null);
-  const [isEditing, setIsEditing] = useState(false);
-  const [editForm, setEditForm] = useState({ title: "", content: "", tags: "" });
+// --- Helper Functions ---
 
-  const getPageSize = (isInitial) => (isInitial ? 32 : 150);
-
-  const getYoutubeId = (url) => {
+const getYoutubeId = (url) => {
     if (!url) return null;
     const match = url.match(/.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/);
     return (match && match[2].length === 11) ? match[2] : null;
-  };
+};
 
-  const getVimeoId = (url) => {
+const getVimeoId = (url) => {
     if (!url) return null;
     const match = url.match(/vimeo\.com\/(?:channels\/(?:\w+\/)?|groups\/(?:[^\/]*)\/videos\/|album\/(?:\d+)\/video\/|video\/|)(\d+)(?:$|\/|\?)/);
     return match ? match[1] : null;
-  };
+};
 
-  const getDailymotionId = (url) => {
+const getDailymotionId = (url) => {
     if (!url) return null;
     const match = url.match(/dailymotion\.com\/video\/([a-zA-Z0-9]+)/);
     return match ? match[1] : null;
-  };
+};
 
-  const getTwitchId = (url) => {
+const getTwitchId = (url) => {
     if (!url) return null;
     const videoMatch = url.match(/twitch\.tv\/videos\/(\d+)/);
     if (videoMatch) return { type: 'video', id: videoMatch[1] };
     const channelMatch = url.match(/twitch\.tv\/([a-zA-Z0-9_]+)/);
     if (channelMatch && !url.includes('/videos/')) return { type: 'channel', id: channelMatch[1] };
     return null;
-  };
+};
 
-  const isTikTokUrl = (url) => (url && url.includes('tiktok.com'));
-  const isTwitterUrl = (url) => (url && (url.includes('twitter.com') || url.includes('x.com')));
-  const isFacebookUrl = (url) => (url && (url.includes('facebook.com') || url.includes('fb.watch')));
-  const isInstagramReel = (url) => (url && (url.includes("instagram.com/reel") || url.includes("instagram.com/p/")));
+const isTikTokUrl = (url) => (url && url.includes('tiktok.com'));
+const isTwitterUrl = (url) => (url && (url.includes('twitter.com') || url.includes('x.com')));
+const isFacebookUrl = (url) => (url && (url.includes('facebook.com') || url.includes('fb.watch')));
+const isInstagramReel = (url) => (url && (url.includes("instagram.com/reel") || url.includes("instagram.com/p/")));
 
-  const InstagramEmbed = ({ url }) => {
+const formatRelativeTime = (timestamp) => {
+    if (!timestamp) return "";
+    const date = new Date(timestamp);
+    if (isNaN(date.getTime())) return "";
+    const now = new Date();
+    const diff = now - date;
+    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+    if (days === 0) return "Today";
+    if (days === 1) return "Yesterday";
+    if (days < 7) return `${days} days ago`;
+    return date.toLocaleDateString();
+};
+
+const getIcon = (type, size = 24) => {
+    const props = { size, strokeWidth: 1.5 };
+    const t = (type || "").toLowerCase();
+    switch (t) {
+        case "image": return <ImageIcon {...props} className="text-purple-500" />;
+        case "video": return <Video {...props} className="text-red-500" />;
+        case "pdf": return <FileText {...props} className="text-orange-500" />;
+        case "link": return <LinkIcon {...props} className="text-blue-500" />;
+        case "article": return <FileText {...props} className="text-gray-500" />;
+        case "audio": return <Mic {...props} className="text-green-500" />;
+        default: return <File {...props} className="text-gray-400" />;
+    }
+};
+
+const InstagramEmbed = ({ url }) => {
     useEffect(() => {
         if (!document.querySelector('script[src="//www.instagram.com/embed.js"]')) {
             const script = document.createElement("script");
@@ -70,35 +83,151 @@ const VaultList = ({ searchQuery = "", viewMode = "list", limit = 0, refreshTrig
             </blockquote>
         </div>
     );
+};
+
+// --- Sub-Components ---
+
+const GridItemCard = ({ item, isSelectionMode, isSelected, onSelect, onClick }) => {
+    const url = item.content || item.source_url;
+    const ytId = getYoutubeId(url);
+    const itemType = (item.type || "").toLowerCase();
+    const isVid = ytId || getVimeoId(url) || getDailymotionId(url) || getTwitchId(url) || isTikTokUrl(url) || isInstagramReel(url) || isFacebookUrl(url) || itemType === 'video';
+
+    return (
+    <motion.div 
+        initial={{ opacity: 0, scale: 0.95 }}
+        animate={{ opacity: 1, scale: 1 }}
+        whileHover={{ y: -4, boxShadow: "0 8px 20px rgba(0,0,0,0.08)" }} 
+        onClick={() => isSelectionMode ? onSelect(item.id) : onClick(item)} 
+        className="bg-white rounded-4 border h-100 overflow-hidden cursor-pointer d-flex flex-column position-relative"
+        style={{ minHeight: "200px", ...(isSelected ? {boxShadow: "0 0 0 2px var(--bs-primary)"} : {}) }}
+    >
+        {isSelectionMode && (
+           <div className="position-absolute top-0 end-0 p-2" style={{ zIndex: 10 }}>
+               <div className={`rounded bg-white d-flex align-items-center justify-content-center shadow-sm border ${isSelected ? 'border-primary text-primary' : 'border-secondary text-muted'}`} style={{ width: 28, height: 28 }}>
+                   {isSelected ? <CheckSquare size={18} /> : <Square size={18} />}
+               </div>
+           </div>
+        )}
+        <div className="flex-grow-1 bg-light d-flex align-items-center justify-content-center position-relative overflow-hidden" style={{ minHeight: "140px" }}>
+            {itemType === "image" ? <img src={item.file_path} alt="" className="w-100 h-100 object-fit-cover position-absolute" /> :
+             ytId ? (
+                 <React.Fragment>
+                     <img src={`https://img.youtube.com/vi/${ytId}/hqdefault.jpg`} alt="" className="w-100 h-100 object-fit-cover position-absolute" />
+                     <div className="position-absolute bg-dark bg-opacity-50 rounded-circle p-2 d-flex align-items-center justify-content-center" style={{ width: "40px", height: "40px" }}>
+                         <Play size={20} className="text-white fill-white" />
+                     </div>
+                 </React.Fragment>
+             ) :
+             isVid ? (
+                 item.thumbnail_path ? (
+                     <React.Fragment>
+                          <img src={item.thumbnail_path} alt="" className="w-100 h-100 object-fit-cover position-absolute" />
+                          <div className="position-absolute bg-dark bg-opacity-50 rounded-circle p-2 d-flex align-items-center justify-content-center" style={{ width: "40px", height: "40px" }}>
+                              <Play size={20} className="text-white fill-white" />
+                          </div>
+                     </React.Fragment>
+                 ) : (
+                     <div className="w-100 h-100 d-flex align-items-center justify-content-center bg-dark">
+                         <Video size={48} className="text-white opacity-75" />
+                     </div>
+                 )
+             ) :
+             <div className="opacity-50 transform scale-125">{getIcon(item.type, 48)}</div>}
+        </div>
+        <div className="p-3 border-top">
+            <h6 className="fw-semibold mb-1 text-truncate text-dark">{item.title || "Untitled"}</h6>
+            <div className="d-flex align-items-center justify-content-between text-muted small mt-2">
+                <span className="text-uppercase fw-bold" style={{ fontSize: "0.65rem" }}>{item.type}</span>
+                <span>{formatRelativeTime(item.created_at)}</span>
+            </div>
+        </div>
+    </motion.div>
+    );
+};
+
+const ItemCard = ({ item, isSelectionMode, isSelected, onSelect, onClick }) => {
+  return (
+  <motion.div 
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      whileHover={{ y: -2, boxShadow: "0 4px 12px rgba(0,0,0,0.05)" }} 
+      className={`bg-white rounded-3 border p-3 cursor-pointer d-flex align-items-center gap-3 transition-all ${isSelected ? 'border-primary bg-light' : ''}`} 
+      onClick={() => isSelectionMode ? onSelect(item.id) : onClick(item)}
+  >
+      {isSelectionMode && (
+           <div className={`${isSelected ? 'text-primary' : 'text-muted'}`}>
+               {isSelected ? <CheckSquare size={20} /> : <Square size={20} />}
+           </div>
+      )}
+      <div className="p-2 bg-light rounded-circle d-flex align-items-center justify-content-center">{getIcon(item.type)}</div>
+      <div className="flex-grow-1 overflow-hidden">
+          <h6 className="fw-semibold mb-1 text-truncate text-dark">{item.title || "Untitled"}</h6>
+          <div className="d-flex align-items-center gap-2 text-muted small"><span className="text-uppercase fw-bold" style={{ fontSize: "0.7rem" }}>{item.type}</span><span>•</span><span>{formatRelativeTime(item.created_at)}</span></div>
+      </div>
+  </motion.div>
+  );
+};
+
+// --- Main Component ---
+
+const VaultList = ({ searchQuery = "", viewMode = "list", limit = 0, refreshTrigger }) => {
+  const { user } = useAuth();
+  
+  const [itemsPool, setItemsPool] = useState([]);
+  const [searchResults, setSearchResults] = useState([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [activeFilter, setActiveFilter] = useState("ALL");
+  const [hasMoreMap, setHasMoreMap] = useState({});
+  const [selectedItem, setSelectedItem] = useState(null);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editForm, setEditForm] = useState({ title: "", content: "", tags: "" });
+  const [selectedItems, setSelectedItems] = useState([]);
+  const [isSelectionMode, setIsSelectionMode] = useState(false);
+
+  const getPageSize = (isInitial) => (isInitial ? 32 : 150);
+
+  const toggleSelection = (id, e) => {
+      if (e) e.stopPropagation();
+      setSelectedItems(prev => {
+          if (prev.includes(id)) return prev.filter(i => i !== id);
+          return [...prev, id];
+      });
   };
 
-  const formatRelativeTime = (timestamp) => {
-    if (!timestamp) return "";
-    const date = new Date(timestamp);
-    if (isNaN(date.getTime())) return "";
-    const now = new Date();
-    const diff = now - date;
-    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-    if (days === 0) return "Today";
-    if (days === 1) return "Yesterday";
-    if (days < 7) return `${days} days ago`;
-    return date.toLocaleDateString();
+  const handleBulkDelete = async () => {
+      if (!window.confirm(`Delete ${selectedItems.length} items?`)) return;
+      
+      // Optimistic Update
+      const previousItems = [...itemsPool];
+      setItemsPool(prev => prev.filter(item => !selectedItems.includes(item.id)));
+      setSearchResults(prev => prev.filter(item => !selectedItems.includes(item.id)));
+      setIsSelectionMode(false);
+      const itemsToDelete = [...selectedItems];
+      setSelectedItems([]);
+
+      try {
+          const url = `/api/items/bulk-delete${user ? `?userId=${user.uid}` : ""}`;
+          const res = await fetch(url, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ item_ids: itemsToDelete })
+          });
+          
+          if (!res.ok) {
+              // Revert if failed
+              setItemsPool(previousItems);
+              alert("Failed to delete items.");
+          }
+      } catch (e) { 
+          console.error(e);
+          setItemsPool(previousItems); // Revert on error
+      }
   };
 
-  const getIcon = (type, size = 24) => {
-    const props = { size, strokeWidth: 1.5 };
-    const t = (type || "").toLowerCase();
-    switch (t) {
-        case "image": return <ImageIcon {...props} className="text-purple-500" />;
-        case "video": return <Video {...props} className="text-red-500" />;
-        case "pdf": return <FileText {...props} className="text-orange-500" />;
-        case "link": return <LinkIcon {...props} className="text-blue-500" />;
-        case "article": return <FileText {...props} className="text-gray-500" />;
-        case "audio": return <Mic {...props} className="text-green-500" />;
-        default: return <File {...props} className="text-gray-400" />;
-    }
-  };
-
+  // ... (fetch logic remains same, but using itemsPool/searchResults)
   // 1. Derived State: base items
   const baseItems = searchQuery ? searchResults : itemsPool;
 
@@ -124,20 +253,13 @@ const VaultList = ({ searchQuery = "", viewMode = "list", limit = 0, refreshTrig
   const displayedItems = limit > 0 ? filteredItems.slice(0, limit) : filteredItems;
 
   const fetchItems = async (isInitial = true) => {
-      // If NOT searching, and we already have items for this view, we might skip
-      // But only if we are sure user hasn't changed. 
-      // For safety, let's allow refetching or check filteredItems length.
-      if (isInitial && !searchQuery && filteredItems.length > 0) {
-          // If we have items, maybe we don't need to fetch? 
-          // But 'itemsPool' might need more if we scrolled.
-          // Let's rely on standard logic: fetch if we need to.
-      }
+      if (isInitial && !searchQuery && filteredItems.length > 0) {}
 
       if (isInitial) setLoading(true); else setLoadingMore(true);
       
       try {
           let url = "/api/items";
-          const offset = isInitial ? 0 : itemsPool.length; // Use itemsPool length for offset
+          const offset = isInitial ? 0 : itemsPool.length; 
           const currentPageSize = getPageSize(isInitial);
           
           if (searchQuery) {
@@ -152,12 +274,9 @@ const VaultList = ({ searchQuery = "", viewMode = "list", limit = 0, refreshTrig
               url += (url.includes('?') ? '&' : '?') + `userId=${user.uid}`;
           }
 
-          console.log("Fetching items:", url); // Debugging
-
           const res = await fetch(url);
           if (res.ok) {
               const data = await res.json();
-              
               if (searchQuery) {
                   setSearchResults(data);
               } else {
@@ -173,24 +292,12 @@ const VaultList = ({ searchQuery = "", viewMode = "list", limit = 0, refreshTrig
                   });
                   setHasMoreMap(prev => ({ ...prev, [activeFilter]: data.length === currentPageSize }));
               }
-          } else {
-              console.error("Fetch failed:", res.status);
           }
-      } catch (e) { 
-          console.error("Fetch error:", e); 
-      } finally { 
-          setLoading(false); 
-          setLoadingMore(false); 
-      } 
+      } catch (e) { console.error("Fetch error:", e); } finally { setLoading(false); setLoadingMore(false); } 
   };
 
   useEffect(() => {
-      // Reset logic when context changes
-      if (refreshTrigger > 0) { 
-          setItemsPool([]); 
-          setHasMoreMap({}); 
-      }
-      
+      if (refreshTrigger > 0) { setItemsPool([]); setHasMoreMap({}); }
       if (limit > 0) {
           const fetchRecent = async () => {
               setLoading(true);
@@ -210,13 +317,6 @@ const VaultList = ({ searchQuery = "", viewMode = "list", limit = 0, refreshTrig
           };
           fetchRecent();
       } else {
-          // Main Dashboard/Library Fetch
-          // Only fetch if user is loaded or (if user is optional) 
-          // If we want to show empty when not logged in, we can guard:
-          // if (!user) return; 
-          
-          // But assuming public items aren't a thing, we fetch only if user exists
-          // OR if we want to hit the API to confirm empty list.
           fetchItems(true);
       }
   }, [user, searchQuery, refreshTrigger, limit, activeFilter]);
@@ -260,67 +360,31 @@ const VaultList = ({ searchQuery = "", viewMode = "list", limit = 0, refreshTrig
   };
 
   const FilterTabs = () => (
-      <div className="d-flex gap-2 mb-4 overflow-auto pb-2" style={{ scrollbarWidth: "none" }}>
-          {["ALL", "YOUTUBE", "IMAGE", "VIDEO", "AUDIO", "DOCS", "LINKS", "NOTES"].map(f => (
-              <button key={f} onClick={() => setActiveFilter(f)} className={`btn btn-sm rounded-pill px-3 fw-medium transition-all ${activeFilter === f ? "btn-dark" : "btn-light text-muted border"}`} style={{ whiteSpace: "nowrap" }}>
-                  {f === "ALL" ? "All Items" : f === "YOUTUBE" ? "YouTube" : f === "AUDIO" ? "Audio" : f.charAt(0) + f.slice(1).toLowerCase()}
-              </button>
-          ))}
-      </div>
-  );
-
-  const GridItemCard = ({ item }) => {
-      const url = item.content || item.source_url;
-      const ytId = getYoutubeId(url);
-      const itemType = (item.type || "").toLowerCase();
-      const isVid = ytId || getVimeoId(url) || getDailymotionId(url) || getTwitchId(url) || isTikTokUrl(url) || isInstagramReel(url) || isFacebookUrl(url) || itemType === 'video';
-      return (
-      <motion.div layout initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} whileHover={{ y: -4, boxShadow: "0 8px 20px rgba(0,0,0,0.08)" }} onClick={() => setSelectedItem(item)} className="bg-white rounded-4 border h-100 overflow-hidden cursor-pointer d-flex flex-column" style={{ minHeight: "200px" }}>
-          <div className="flex-grow-1 bg-light d-flex align-items-center justify-content-center position-relative overflow-hidden" style={{ minHeight: "140px" }}>
-              {itemType === "image" ? <img src={item.file_path} alt="" className="w-100 h-100 object-fit-cover position-absolute" /> :
-               ytId ? (
-                   <React.Fragment>
-                       <img src={`https://img.youtube.com/vi/${ytId}/hqdefault.jpg`} alt="" className="w-100 h-100 object-fit-cover position-absolute" />
-                       <div className="position-absolute bg-dark bg-opacity-50 rounded-circle p-2 d-flex align-items-center justify-content-center" style={{ width: "40px", height: "40px" }}>
-                           <Play size={20} className="text-white fill-white" />
-                       </div>
-                   </React.Fragment>
-               ) :
-               isVid ? (
-                   item.thumbnail_path ? (
-                       <React.Fragment>
-                            <img src={item.thumbnail_path} alt="" className="w-100 h-100 object-fit-cover position-absolute" />
-                            <div className="position-absolute bg-dark bg-opacity-50 rounded-circle p-2 d-flex align-items-center justify-content-center" style={{ width: "40px", height: "40px" }}>
-                                <Play size={20} className="text-white fill-white" />
-                            </div>
-                       </React.Fragment>
-                   ) : (
-                       <div className="w-100 h-100 d-flex align-items-center justify-content-center bg-dark">
-                           <Video size={48} className="text-white opacity-75" />
-                       </div>
-                   )
-               ) :
-               <div className="opacity-50 transform scale-125">{getIcon(item.type, 48)}</div>}
-          </div>
-          <div className="p-3 border-top">
-              <h6 className="fw-semibold mb-1 text-truncate text-dark">{item.title || "Untitled"}</h6>
-              <div className="d-flex align-items-center justify-content-between text-muted small mt-2">
-                  <span className="text-uppercase fw-bold" style={{ fontSize: "0.65rem" }}>{item.type}</span>
-                  <span>{formatRelativeTime(item.created_at)}</span>
-              </div>
-          </div>
-      </motion.div>
-      );
-  };
-
-  const ItemCard = ({ item }) => (
-    <motion.div layout initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} whileHover={{ y: -2, boxShadow: "0 4px 12px rgba(0,0,0,0.05)" }} className="bg-white rounded-3 border p-3 cursor-pointer d-flex align-items-center gap-3 transition-all" onClick={() => setSelectedItem(item)}>
-        <div className="p-2 bg-light rounded-circle d-flex align-items-center justify-content-center">{getIcon(item.type)}</div>
-        <div className="flex-grow-1 overflow-hidden">
-            <h6 className="fw-semibold mb-1 text-truncate text-dark">{item.title || "Untitled"}</h6>
-            <div className="d-flex align-items-center gap-2 text-muted small"><span className="text-uppercase fw-bold" style={{ fontSize: "0.7rem" }}>{item.type}</span><span>•</span><span>{formatRelativeTime(item.created_at)}</span></div>
+      <div className="d-flex flex-wrap align-items-center justify-content-between mb-4 gap-3">
+        <div className="d-flex gap-2 overflow-auto pb-2 flex-grow-1" style={{ scrollbarWidth: "none" }}>
+            {["ALL", "YOUTUBE", "IMAGE", "VIDEO", "AUDIO", "DOCS", "LINKS", "NOTES"].map(f => (
+                <button key={f} onClick={() => setActiveFilter(f)} className={`btn btn-sm rounded-pill px-3 fw-medium transition-all ${activeFilter === f ? "btn-dark" : "btn-light text-muted border"}`} style={{ whiteSpace: "nowrap" }}>
+                    {f === "ALL" ? "All Items" : f === "YOUTUBE" ? "YouTube" : f === "AUDIO" ? "Audio" : f.charAt(0) + f.slice(1).toLowerCase()}
+                </button>
+            ))}
         </div>
-    </motion.div>
+        <div className="d-flex gap-2 ms-auto">
+            {isSelectionMode ? (
+                <React.Fragment>
+                     <Button variant="danger" size="sm" onClick={handleBulkDelete} disabled={selectedItems.length === 0} className="rounded-pill px-3 d-flex align-items-center gap-2">
+                        <Trash2 size={14} /> Delete ({selectedItems.length})
+                     </Button>
+                     <Button variant="outline-secondary" size="sm" onClick={() => { setIsSelectionMode(false); setSelectedItems([]); }} className="rounded-pill px-3">
+                        Cancel
+                     </Button>
+                </React.Fragment>
+            ) : (
+                <Button variant="ghost" size="sm" onClick={() => setIsSelectionMode(true)} className="text-muted rounded-pill px-3">
+                    Select
+                </Button>
+            )}
+        </div>
+      </div>
   );
 
   const isGrid = (viewMode === "grouped" || limit > 0);
@@ -337,9 +401,9 @@ const VaultList = ({ searchQuery = "", viewMode = "list", limit = 0, refreshTrig
                 exit={{ opacity: 0 }}
                 className="w-100"
               >
-                  <Row className="g-3">
-                      {[...Array(limit > 0 ? limit : 8)].map((_, i) => (
-                          <Col xs={6} md={4} lg={3} key={i}>
+                  <Row className="g-3 row-cols-2 row-cols-md-3 row-cols-lg-4 row-cols-xl-5">
+                      {[...Array(limit > 0 ? limit : 10)].map((_, i) => (
+                          <Col key={i}>
                               <div className="bg-light rounded-4 border animate-pulse" style={{ height: "200px" }}></div>
                           </Col>
                       ))}
@@ -353,17 +417,30 @@ const VaultList = ({ searchQuery = "", viewMode = "list", limit = 0, refreshTrig
           ) : (
               <motion.div key="content">
                   {isGrid ? (
-                      <Row className="g-3">
+                      <Row className="g-3 row-cols-2 row-cols-md-3 row-cols-lg-4 row-cols-xl-5">
                           {displayedItems.map(item => (
-                              <Col xs={6} md={4} lg={3} key={item.id}>
-                                  <GridItemCard item={item} />
+                              <Col key={item.id}>
+                                  <GridItemCard 
+                                    item={item} 
+                                    isSelectionMode={isSelectionMode}
+                                    isSelected={selectedItems.includes(item.id)}
+                                    onSelect={toggleSelection}
+                                    onClick={setSelectedItem}
+                                  />
                               </Col>
                           ))}
                       </Row>
                   ) : (
                       <div className="d-flex flex-column gap-3">
                           {displayedItems.map(item => (
-                              <ItemCard key={item.id} item={item} />
+                              <ItemCard 
+                                key={item.id} 
+                                item={item} 
+                                isSelectionMode={isSelectionMode}
+                                isSelected={selectedItems.includes(item.id)}
+                                onSelect={toggleSelection}
+                                onClick={setSelectedItem}
+                              />
                           ))}
                       </div>
                   )}

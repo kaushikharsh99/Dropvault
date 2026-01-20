@@ -43,7 +43,7 @@ const Dashboard = () => {
   return (
     <div className="min-vh-100 bg-light">
       <Navbar className="mb-4 bg-white border-bottom sticky-top py-3">
-        <Container style={{ maxWidth: "900px" }}>
+        <Container fluid className="px-4">
           <Navbar.Brand 
             href="#" 
             className="fw-bold fs-4 d-flex align-items-center gap-2 text-primary" 
@@ -54,7 +54,7 @@ const Dashboard = () => {
           </Navbar.Brand>
           
           <div className="d-flex align-items-center gap-3">
-              <div className="position-relative" style={{ width: "240px" }}>
+              <div className="position-relative" style={{ width: "300px" }}>
                   <Search size={16} className="position-absolute top-50 start-0 translate-middle-y ms-3 text-muted" />
                   <input
                     type="text"
@@ -87,7 +87,7 @@ const Dashboard = () => {
         </Container>
       </Navbar>
       
-      <Container style={{ maxWidth: "900px" }} className="pb-5">
+      <Container fluid className="px-4 pb-5">
         <AnimatePresence mode="wait">
             {viewMode === "dashboard" ? (
                 <motion.div

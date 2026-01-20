@@ -1,6 +1,8 @@
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, Response
+from pydantic import BaseModel
+from typing import List
 import shutil
 import os
 import uuid
@@ -18,7 +20,7 @@ from PIL import Image
 import whisper
 from io import BytesIO
 from .ai import generate_embedding, query_embedding, cosine_sim
-from .database import init_db, add_item, get_all_items, delete_item, update_item, get_item, get_all_items_with_embeddings, get_all_tags
+from .database import init_db, add_item, get_all_items, delete_item, delete_items, update_item, get_item, get_all_items_with_embeddings, get_all_tags
 from .vision import detect_objects
 
 app = FastAPI()
@@ -879,6 +881,20 @@ async def delete_item_endpoint(item_id: int, userId: str = None):
     
     delete_item(item_id, userId)
     return {"status": "deleted", "id": item_id}
+
+class BulkDeleteRequest(BaseModel):
+    item_ids: List[int]
+
+@app.post("/api/items/bulk-delete")
+async def bulk_delete_endpoint(
+    request: BulkDeleteRequest,
+    userId: str = None 
+):
+    if not userId:
+        raise HTTPException(status_code=403, detail="Not authorized")
+    
+    delete_items(request.item_ids, userId)
+    return {"status": "deleted", "count": len(request.item_ids)}
 
 @app.get("/api/tags")
 async def get_tags(userId: str = None):
