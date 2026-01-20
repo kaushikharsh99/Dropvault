@@ -1,4 +1,4 @@
-from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Request
+from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Request, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, Response
 from pydantic import BaseModel
@@ -22,19 +22,10 @@ from io import BytesIO
 from .ai import generate_embedding, query_embedding, cosine_sim
 from .database import init_db, add_item, get_all_items, delete_item, delete_items, update_item, get_item, get_all_items_with_embeddings, get_all_tags, get_processing_items
 from .vision import detect_objects
+from .media_utils import UPLOAD_DIR, extract_text, extract_text_from_image, generate_video_thumbnail, transcribe_audio
+from .worker import worker, manager
 
 app = FastAPI()
-
-# Initialize Whisper Model (load once)
-# Using "base" model for a balance of speed and accuracy. 
-# Options: tiny, base, small, medium, large
-print("Loading Whisper model...")
-try:
-    whisper_model = whisper.load_model("base")
-    print("Whisper model loaded.")
-except Exception as e:
-    print(f"Failed to load Whisper model: {e}")
-    whisper_model = None
 
 # CORS
 app.add_middleware(
@@ -48,10 +39,23 @@ app.add_middleware(
 # Init DB
 init_db()
 
-# Static for uploads
-UPLOAD_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "uploads")
-os.makedirs(UPLOAD_DIR, exist_ok=True)
-# REMOVED: app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
+@app.websocket("/ws/progress/{user_id}")
+async def websocket_endpoint(websocket: WebSocket, user_id: str):
+    await manager.connect(websocket)
+    
+    # Send current state immediately
+    try:
+        active_items = get_processing_items(user_id)
+        for item in active_items:
+            await websocket.send_json(item)
+    except Exception as e:
+        print(f"Error sending initial state: {e}")
+
+    try:
+        while True:
+            await websocket.receive_text()
+    except Exception:
+        manager.disconnect(websocket)
 
 @app.get("/uploads/{file_path:path}")
 async def get_file(file_path: str, request: Request):
@@ -106,281 +110,6 @@ async def get_file(file_path: str, request: Request):
             "Accept-Ranges": "bytes"
         }
     )
-
-def extract_text_from_image(path):
-    print(f"Running OCR on: {path}")
-    try:
-        # Load image
-        with open(path, "rb") as f:
-            file_bytes = f.read()
-                
-        # Convert bytes to numpy array
-        nparr = np.frombuffer(file_bytes, np.uint8)
-        img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
-        
-        if img is None:
-            print("OCR: Could not decode image file.")
-            return ""
-        
-        # Preprocessing for better OCR
-        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-        # Apply slight blur to reduce noise
-        gray = cv2.medianBlur(gray, 3)
-        # Thresholding
-        gray = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)[1]
-        
-        # Run Tesseract
-        text = pytesseract.image_to_string(gray)
-        
-        extracted = text.strip()
-        print(f"OCR Complete. Extracted {len(extracted)} characters.")
-        return extracted
-    except Exception as e:
-        print(f"OCR Error: {e}")
-        return ""
-
-def generate_video_thumbnail(video_path, thumbnail_path):
-    print(f"Generating thumbnail for: {video_path}")
-    try:
-        cap = cv2.VideoCapture(video_path)
-        if not cap.isOpened():
-            print("Could not open video for thumbnail generation")
-            return False
-
-        # Get total frame count
-        total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-        
-        # Seek to 10% or 1st second to avoid black start frames
-        seek_frame = min(30, total_frames // 10)
-        cap.set(cv2.CAP_PROP_POS_FRAMES, seek_frame)
-        
-        ret, frame = cap.read()
-        if ret:
-            # Save thumbnail
-            cv2.imwrite(thumbnail_path, frame)
-            print(f"Thumbnail saved to: {thumbnail_path}")
-            cap.release()
-            return True
-        else:
-            print("Could not read frame for thumbnail")
-            cap.release()
-            return False
-
-    except Exception as e:
-        print(f"Thumbnail Generation Error: {e}")
-        return False
-
-def transcribe_audio(file_path):
-    """
-    Transcribe audio file using OpenAI Whisper.
-    """
-    if not whisper_model:
-        return "Transcription unavailable (Model not loaded)."
-        
-    print(f"Transcribing audio: {file_path}")
-    try:
-        # Run transcription
-        result = whisper_model.transcribe(file_path)
-        text = result["text"].strip()
-        print(f"Transcription complete. Length: {len(text)}")
-        return text
-
-    except Exception as e:
-        print(f"Transcription Error: {e}")
-        return f"[Transcription Failed: {str(e)}]"
-
-def extract_text(file_path, type, content=None):
-    extracted_links = set()
-    
-    if type == "pdf":
-        text = ""
-        try:
-            with pdfplumber.open(file_path) as pdf:
-                for page in pdf.pages:
-                    extracted = page.extract_text()
-                    if extracted:
-                        text += extracted + "\n"
-                    
-                    # Extract hyperlinks
-                    try:
-                        hyperlinks = page.hyperlinks
-                        for link in hyperlinks:
-                            if 'uri' in link:
-                                extracted_links.add(link['uri'])
-                    except:
-                        pass
-                        
-            # Append extracted links
-            if extracted_links:
-                text += "\n\n--- Extracted Links ---\n" + "\n".join(extracted_links)
-                
-            return text, None, None
-        except Exception as e:
-            print(f"PDF Extraction Error: {e}")
-            return "", None, None
-    elif type == "image":
-        text = extract_text_from_image(file_path)
-        return text, None, None
-    elif type == "audio" or type == "video":
-        text = transcribe_audio(file_path)
-        return text, None, None
-    elif type == "link" or (type == "video" and content and content.startswith("http")):
-        try:
-            headers = {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-            }
-            resp = requests.get(content, headers=headers, timeout=10)
-            soup = BeautifulSoup(resp.text, 'html.parser')
-            
-            meta = {
-                "title": None,
-                "description": None,
-                "author": None,
-                "date": None,
-                "site_name": None,
-                "keywords": None,
-                "image": None
-            }
-
-            def get_content(props, attrs=None):
-                if not attrs: attrs = {}
-                for prop in props:
-                    tag = soup.find("meta", property=prop) or soup.find("meta", attrs={**attrs, "name": prop})
-                    if tag and tag.get("content"):
-                        return tag.get("content").strip()
-                return None
-
-            meta["title"] = get_content(["og:title", "twitter:title"]) or (soup.title.string.strip() if soup.title else None)
-            meta["description"] = get_content(["og:description", "twitter:description", "description"])
-            meta["site_name"] = get_content(["og:site_name"])
-            meta["author"] = get_content(["article:author", "author", "twitter:creator"])
-            meta["date"] = get_content(["article:published_time", "date", "pubdate", "og:pubdate"])
-            meta["keywords"] = get_content(["keywords", "article:tag"])
-            meta["image"] = get_content(["og:image", "twitter:image"])
-
-            if not meta["date"] or not meta["author"] or not meta["title"] or not meta["description"]:
-                try:
-                    ld_scripts = soup.find_all("script", type="application/ld+json")
-                    for script in ld_scripts:
-                        if script.string:
-                            try:
-                                data = json.loads(script.string)
-                                if isinstance(data, list): data = data[0]
-                                if isinstance(data, dict):
-                                    if not meta["date"]:
-                                        meta["date"] = data.get("datePublished") or data.get("dateCreated") or data.get("uploadDate")
-                                    if not meta["author"]:
-                                        auth = data.get("author")
-                                        if isinstance(auth, dict): meta["author"] = auth.get("name")
-                                        elif isinstance(auth, list) and auth: meta["author"] = auth[0].get("name")
-                                        elif isinstance(auth, str): meta["author"] = auth
-                                    if not meta["image"]:
-                                         meta["image"] = data.get("image") or data.get("thumbnailUrl")
-                                    if not meta["title"]:
-                                        meta["title"] = data.get("name") or data.get("headline")
-                                    if not meta["description"]:
-                                        meta["description"] = data.get("description") or data.get("articleBody")
-                            except: pass
-                except: pass
-
-            # Fallback for title/desc if still empty
-            if not meta["title"] and soup.title:
-                meta["title"] = soup.title.string.strip()
-            
-            # Clean up title (remove site names)
-            if meta["title"]:
-                separators = [" | ", " - ", " : ", " • ", " on Instagram", " on TikTok"]
-                for sep in separators:
-                    if sep in meta["title"]:
-                         # Check if the part after separator is the site name or similar generic text
-                         parts = meta["title"].split(sep)
-                         if len(parts) > 1:
-                             # Heuristic: if the last part is short or matches site name, remove it
-                             last = parts[-1].strip().lower()
-                             if last in ["instagram", "tiktok", "youtube", "twitter", "x", "facebook", "linkedin"] or len(last) < 15:
-                                 meta["title"] = sep.join(parts[:-1]).strip()
-
-            page_title = meta["title"]
-
-            for script in soup(["script", "style", "nav", "footer", "header", "aside"]):
-                script.extract()
-            
-            body_text = soup.get_text()
-            lines = (line.strip() for line in body_text.splitlines())
-            chunks = (phrase.strip() for line in lines for phrase in line.split("  "))
-            clean_body = "\n".join(chunk for chunk in chunks if chunk)
-            
-            # Find links in body text
-            urls = re.findall(r'http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\\(\\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+', clean_body)
-            for url in urls:
-                extracted_links.add(url)
-
-            final_parts = [f"URL: {content}"]
-            if meta["title"]: final_parts.append(f"Title: {meta['title']}")
-            if meta["description"]: final_parts.append(f"Description: {meta['description']}")
-            if meta["author"]: final_parts.append(f"Author: {meta['author']}")
-            if meta["date"]: final_parts.append(f"Date: {meta['date']}")
-            if meta["site_name"]: final_parts.append(f"Site: {meta['site_name']}")
-            if meta["keywords"]: final_parts.append(f"Keywords: {meta['keywords']}")
-            
-            final_parts.append("\n--- Content ---\n")
-            final_parts.append(clean_body[:7000])
-            
-            if extracted_links:
-                final_parts.append("\n\n--- Extracted Links ---\n" + "\n".join(list(extracted_links)[:20])) # Limit to 20 links
-
-            return "\n".join(final_parts), page_title, meta["image"]
-
-        except Exception as e:
-            print(f"Link Extraction Error: {e}")
-            return content, None, None
-    elif type in ["note", "text"]:
-        return content or "", None, None
-    return content or "", None, None
-
-
-@app.post("/api/upload")
-async def upload_file(file: UploadFile = File(...), userId: str = Form(None)):
-    if userId:
-        user_upload_dir = os.path.join(UPLOAD_DIR, userId)
-        os.makedirs(user_upload_dir, exist_ok=True)
-        filename = f"{uuid.uuid4()}-{file.filename}"
-        file_path = os.path.join(user_upload_dir, filename)
-        file_url = f"/uploads/{userId}/{filename}"
-    else:
-        filename = f"{uuid.uuid4()}-{file.filename}"
-        file_path = os.path.join(UPLOAD_DIR, filename)
-        file_url = f"/uploads/{filename}"
-    
-    with open(file_path, "wb") as buffer:
-        shutil.copyfileobj(file.file, buffer)
-        
-    # Generate Thumbnail for Video
-    thumbnail_url = None
-    mime_type = file.content_type
-    if not mime_type:
-        mime_type, _ = mimetypes.guess_type(file.filename)
-        
-    if mime_type and mime_type.startswith('video/'):
-        thumb_dir = os.path.join(os.path.dirname(file_path), "thumbnails")
-        os.makedirs(thumb_dir, exist_ok=True)
-        thumb_filename = f"{filename}.jpg"
-        thumb_path = os.path.join(thumb_dir, thumb_filename)
-        
-        if generate_video_thumbnail(file_path, thumb_path):
-            if userId:
-                thumbnail_url = f"/uploads/{userId}/thumbnails/{thumb_filename}"
-            else:
-                thumbnail_url = f"/uploads/thumbnails/{thumb_filename}"
-
-    return {
-        "success": True,
-        "fileUrl": file_url, 
-        "filename": filename, 
-        "originalName": file.filename,
-        "mimetype": file.content_type,
-        "thumbnailUrl": thumbnail_url
-    }
 
 def detect_social_platform(url):
     if not url: return None
@@ -530,7 +259,7 @@ async def create_item(
     )
     
     # Queue for processing
-    processor.add_task(item_id, final_file_path, type, userId, thumbnail_path)
+    worker.add_task(item_id, final_file_path, type, userId, thumbnail_path)
     
     return {
         "id": item_id, 
@@ -539,6 +268,49 @@ async def create_item(
         "progress_stage": "queued",
         "progress_percent": 0,
         "progress_message": "Waiting in queue..."
+    }
+
+@app.post("/api/upload")
+async def upload_file(file: UploadFile = File(...), userId: str = Form(None)):
+    if userId:
+        user_upload_dir = os.path.join(UPLOAD_DIR, userId)
+        os.makedirs(user_upload_dir, exist_ok=True)
+        filename = f"{uuid.uuid4()}-{file.filename}"
+        file_path = os.path.join(user_upload_dir, filename)
+        file_url = f"/uploads/{userId}/{filename}"
+    else:
+        filename = f"{uuid.uuid4()}-{file.filename}"
+        file_path = os.path.join(UPLOAD_DIR, filename)
+        file_url = f"/uploads/{filename}"
+    
+    with open(file_path, "wb") as buffer:
+        shutil.copyfileobj(file.file, buffer)
+        
+    # Generate Thumbnail for Video
+    thumbnail_url = None
+    mime_type = file.content_type
+    if not mime_type:
+        mime_type, _ = mimetypes.guess_type(file.filename)
+        
+    if mime_type and mime_type.startswith('video/'):
+        thumb_dir = os.path.join(os.path.dirname(file_path), "thumbnails")
+        os.makedirs(thumb_dir, exist_ok=True)
+        thumb_filename = f"{filename}.jpg"
+        thumb_path = os.path.join(thumb_dir, thumb_filename)
+        
+        if generate_video_thumbnail(file_path, thumb_path):
+            if userId:
+                thumbnail_url = f"/uploads/{userId}/thumbnails/{thumb_filename}"
+            else:
+                thumbnail_url = f"/uploads/thumbnails/{thumb_filename}"
+
+    return {
+        "success": True,
+        "fileUrl": file_url, 
+        "filename": filename, 
+        "originalName": file.filename,
+        "mimetype": file.content_type,
+        "thumbnailUrl": thumbnail_url
     }
     
 @app.get("/api/items")

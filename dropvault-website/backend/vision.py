@@ -32,7 +32,6 @@ def load_vision_models():
         print(f"Vision: Loading models on {device}...")
 
         # 1. Load BLIP-Large (Salesforce/blip-image-captioning-large)
-        # VRAM Usage: ~3GB
         if blip_model is None:
             print("Vision: Loading BLIP-Large...")
             blip_processor = BlipProcessor.from_pretrained("Salesforce/blip-image-captioning-large")
@@ -54,6 +53,29 @@ def load_vision_models():
         import traceback
         traceback.print_exc()
         return False
+
+def unload_vision_models():
+    global owl_processor, owl_model, blip_processor, blip_model
+    print("Vision: Unloading models to free VRAM...")
+    
+    if owl_model is not None:
+        del owl_model
+        del owl_processor
+        owl_model = None
+        owl_processor = None
+        
+    if blip_model is not None:
+        del blip_model
+        del blip_processor
+        blip_model = None
+        blip_processor = None
+        
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
+        
+    import gc
+    gc.collect()
+    print("Vision: Models unloaded.")
 
 def extract_keywords(caption):
     """

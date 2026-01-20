@@ -13,20 +13,43 @@ import pytesseract
 import cv2
 from PIL import Image
 import whisper
+import torch
+import gc
 
 # Static for uploads
 UPLOAD_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "uploads")
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
-# Initialize Whisper Model (load once)
-# Using "base" model for a balance of speed and accuracy. 
-print("Loading Whisper model...")
-try:
-    whisper_model = whisper.load_model("base")
-    print("Whisper model loaded.")
-except Exception as e:
-    print(f"Failed to load Whisper model: {e}")
-    whisper_model = None
+# Global Whisper Model (Lazy Loaded)
+whisper_model = None
+
+def load_whisper_model():
+    global whisper_model
+    if whisper_model is not None:
+        return True
+        
+    print("Audio: Loading Whisper model (base)...")
+    try:
+        device = "cuda" if torch.cuda.is_available() else "cpu"
+        whisper_model = whisper.load_model("base", device=device)
+        print(f"Audio: Whisper model loaded on {device}.")
+        return True
+    except Exception as e:
+        print(f"Audio: Failed to load Whisper model: {e}")
+        whisper_model = None
+        return False
+
+def unload_whisper_model():
+    global whisper_model
+    print("Audio: Unloading Whisper model...")
+    if whisper_model is not None:
+        del whisper_model
+        whisper_model = None
+    
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
+    gc.collect()
+    print("Audio: Whisper model unloaded.")
 
 def extract_text_from_image(path):
     print(f"Running OCR on: {path}")
@@ -95,8 +118,11 @@ def transcribe_audio(file_path):
     """
     Transcribe audio file using OpenAI Whisper.
     """
+    global whisper_model
     if not whisper_model:
-        return "Transcription unavailable (Model not loaded)."
+        # Auto-load if not loaded (fallback, though orchestrator should handle)
+        if not load_whisper_model():
+             return "Transcription unavailable (Model failed to load)."
         
     print(f"Transcribing audio: {file_path}")
     try:
@@ -133,8 +159,7 @@ def extract_text(file_path, type, content=None):
                         
             # Append extracted links
             if extracted_links:
-                text += "\n\n--- Extracted Links ---
-" + "\n".join(extracted_links)
+                text += "\n\n--- Extracted Links ---\n" + "\n".join(extracted_links)
                 
             return text, None, None
         except Exception as e:
@@ -202,10 +227,8 @@ def extract_text(file_path, type, content=None):
                                         meta["title"] = data.get("name") or data.get("headline")
                                     if not meta["description"]:
                                         meta["description"] = data.get("description") or data.get("articleBody")
-                            except:
-                                pass
-                except:
-                    pass
+                            except: pass
+                except: pass
 
             # Fallback for title/desc if still empty
             if not meta["title"] and soup.title:
@@ -235,7 +258,7 @@ def extract_text(file_path, type, content=None):
             clean_body = "\n".join(chunk for chunk in chunks if chunk)
             
             # Find links in body text
-            urls = re.findall(r'http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\(\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+', clean_body)
+            urls = re.findall(r'http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\\(\\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+', clean_body)
             for url in urls:
                 extracted_links.add(url)
 
@@ -251,7 +274,7 @@ def extract_text(file_path, type, content=None):
             final_parts.append(clean_body[:7000])
             
             if extracted_links:
-                final_parts.append("\n\n--- Extracted Links ---" + "\n".join(list(extracted_links)[:20])) # Limit to 20 links
+                final_parts.append("\n\n--- Extracted Links ---\n" + "\n".join(list(extracted_links)[:20])) # Limit to 20 links
 
             return "\n".join(final_parts), page_title, meta["image"]
 

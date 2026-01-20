@@ -10,6 +10,9 @@ def init_db():
     db_path = os.path.join(base_dir, DB_NAME)
     
     conn = sqlite3.connect(db_path)
+    # Enable Write-Ahead Logging (WAL) for concurrency
+    conn.execute("PRAGMA journal_mode=WAL;")
+    
     c = conn.cursor()
     c.execute('''CREATE TABLE IF NOT EXISTS items
                  (id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -274,11 +277,19 @@ def get_all_tags(user_id):
     )
     return sorted_tags
 
-def get_processing_items(user_id):
+def get_processing_items(user_id=None):
     conn = sqlite3.connect(get_db_path())
     conn.row_factory = sqlite3.Row
     c = conn.cursor()
-    c.execute("SELECT id, status, progress_stage, progress_percent, progress_message FROM items WHERE user_id = ? AND status IN ('pending', 'processing')", (user_id,))
+    
+    query = "SELECT id, title, type, content, notes, file_path, embedding, created_at, tags, user_id, thumbnail_path, status, progress_stage, progress_percent, progress_message FROM items WHERE status IN ('pending', 'processing')"
+    params = []
+    
+    if user_id:
+        query += " AND user_id = ?"
+        params.append(user_id)
+        
+    c.execute(query, tuple(params))
     rows = c.fetchall()
     conn.close()
     
@@ -286,6 +297,13 @@ def get_processing_items(user_id):
     for row in rows:
         results.append({
             "item_id": row["id"],
+            "id": row["id"], # Duplicate for consistency
+            "title": row["title"],
+            "type": row["type"],
+            "content": row["content"],
+            "file_path": row["file_path"],
+            "user_id": row["user_id"],
+            "thumbnail_path": row["thumbnail_path"],
             "status": row["status"],
             "stage": row["progress_stage"],
             "percent": row["progress_percent"],

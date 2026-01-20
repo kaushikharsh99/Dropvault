@@ -1,5 +1,4 @@
 import React from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
 import { Loader2, FileText, Image as ImageIcon, Mic, Database, CheckCircle2, UploadCloud } from 'lucide-react';
 
 const StageIcon = ({ stage, currentStage, completed }) => {
@@ -23,8 +22,10 @@ const StageIcon = ({ stage, currentStage, completed }) => {
 };
 
 const PipelineProgress = ({ task }) => {
+    if (!task) return null;
+    
     const stages = ['ocr', 'visual', 'whisper', 'embed', 'done'];
-    const currentStageIndex = stages.indexOf(task.stage);
+    const currentStageIndex = stages.indexOf(task.stage || 'queued');
     
     return (
         <div className="bg-light rounded-3 p-3 border border-opacity-10 mb-2">
@@ -54,14 +55,14 @@ const PipelineProgress = ({ task }) => {
             <div className="progress" style={{ height: '4px' }}>
                 <div 
                     className="progress-bar progress-bar-striped progress-bar-animated" 
-                    style={{ width: `${task.percent}%` }}
+                    style={{ width: `${task.percent || 0}%` }}
                 ></div>
             </div>
         </div>
     );
 };
 
-const GlobalActivityBar = ({ uploadingCount, activeTasks }) => {
+const GlobalActivityBar = ({ uploadingCount = 0, activeTasks = [] }) => {
     const hasActivity = uploadingCount > 0 || activeTasks.length > 0;
 
     if (!hasActivity) return null;
