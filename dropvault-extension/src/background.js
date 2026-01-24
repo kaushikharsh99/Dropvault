@@ -50,6 +50,9 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   } else if (request.action === "trigger-capture-with-data") {
     handleSaveCommand(sender.tab, request.data);
     sendResponse({ status: "started" });
+  } else if (request.action === "upload-file-from-content") {
+    handleFileUpload(request.data, sender.tab).then(success => sendResponse({ success }));
+    return true; // Keep channel open for async response
   }
 });
 
@@ -197,6 +200,56 @@ async function handleSaveCommand(tab, metadata = {}) {
         chrome.action.setBadgeText({ text: "✔" });
         setTimeout(() => chrome.action.setBadgeText({ text: "" }), 2000);
     }
+}
+
+async function handleFileUpload(fileData, tab) {
+    try {
+        const storage = await chrome.storage.local.get(['userId']);
+        const userId = storage.userId;
+
+        if (!userId) {
+            notify("Authentication Required", "Please sign in first.");
+            return false;
+        }
+
+        const res = await fetch(fileData.dataUrl);
+        const blob = await res.blob();
+        
+        const formData = new FormData();
+        formData.append("file", blob, fileData.name);
+        formData.append("userId", userId);
+
+        const uploadRes = await fetch(`${API_BASE_URL}/api/upload`, {
+            method: "POST",
+            body: formData
+        });
+
+        if (!uploadRes.ok) throw new Error("Upload failed");
+        
+        const uploadData = await uploadRes.json();
+        const initialType = fileData.type.startsWith("image/") ? "image" : "file";
+        
+        const payload = new FormData();
+        payload.append("userId", userId);
+        payload.append("title", fileData.name);
+        payload.append("type", initialType);
+        payload.append("file_path", uploadData.fileUrl);
+        payload.append("notes", `Uploaded via Drop Zone from ${tab.title}`);
+        
+        const saveRes = await fetch(`${API_BASE_URL}/api/items`, {
+            method: "POST",
+            body: payload
+        });
+        
+        if (saveRes.ok) {
+            notify("File Saved", `${fileData.name} added to vault.`);
+            return true;
+        }
+    } catch (e) {
+        console.error("File upload failed", e);
+        notify("Upload Failed", "Could not save file.");
+    }
+    return false;
 }
 
 function notify(title, message) {
