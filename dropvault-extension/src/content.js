@@ -358,12 +358,14 @@
         drawer.classList.remove('open');
         // Reset page layout
         document.documentElement.style.marginRight = '';
+        document.documentElement.style.width = '';
         document.documentElement.style.transition = '';
       } else {
         drawer.classList.add('open');
         // Shift page content
-        document.documentElement.style.transition = 'margin-right 0.3s cubic-bezier(0.4, 0, 0.2, 1)';
+        document.documentElement.style.transition = 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)';
         document.documentElement.style.marginRight = '320px';
+        document.documentElement.style.width = 'calc(100% - 320px)';
       }
     }
 
@@ -391,9 +393,26 @@
       if (files.length > 0) {
         handleFiles(files);
       } else {
-        const text = dt.getData('text/plain');
+        // Try to extract data
         const html = dt.getData('text/html');
-        if (text || html) {
+        const text = dt.getData('text/plain');
+        
+        // Check for image in HTML
+        if (html) {
+           const parser = new DOMParser();
+           const doc = parser.parseFromString(html, 'text/html');
+           const img = doc.querySelector('img');
+           if (img && img.src) {
+               addStatusItem(`Saving Image...`, 'spinner');
+               chrome.runtime.sendMessage({
+                   action: "trigger-capture-with-data",
+                   data: { title: "Dropped Image", content: img.src, type: "image", notes: `Source: ${img.src}` }
+               }, () => addStatusItem(`Saved Image`));
+               return;
+           }
+        }
+
+        if (text) {
              handleText(text, html);
         }
       }
