@@ -323,8 +323,7 @@
     shadow.appendChild(style);
 
     // --- Drawer Construction ---
-    const drawerOverlay = document.createElement('div');
-    drawerOverlay.className = 'dv-drawer-overlay';
+    // drawerOverlay removed as requested
     
     const drawer = document.createElement('div');
     drawer.className = 'dv-drawer';
@@ -345,11 +344,8 @@
       </div>
     `;
 
-    drawerOverlay.appendChild(drawer); // Wait, overlay usually covers bg. Drawer sits on top.
-    // Ideally overlay is sibling to drawer if we want overlay to close.
-    // Let's structure: Overlay covers screen, Drawer slides in.
+    // drawerOverlay removed as requested
     
-    shadow.appendChild(drawerOverlay);
     shadow.appendChild(drawer);
 
     const closeDrawerBtn = drawer.querySelector('.dv-close-btn');
@@ -360,15 +356,19 @@
       const isOpen = drawer.classList.contains('open');
       if (isOpen) {
         drawer.classList.remove('open');
-        drawerOverlay.classList.remove('open');
+        // Reset page layout
+        document.documentElement.style.marginRight = '';
+        document.documentElement.style.transition = '';
       } else {
         drawer.classList.add('open');
-        drawerOverlay.classList.add('open');
+        // Shift page content
+        document.documentElement.style.transition = 'margin-right 0.3s cubic-bezier(0.4, 0, 0.2, 1)';
+        document.documentElement.style.marginRight = '320px';
       }
     }
 
     closeDrawerBtn.onclick = toggleDrawer;
-    drawerOverlay.onclick = toggleDrawer;
+    // drawerOverlay removed as requested
 
     // --- Drag & Drop Logic ---
     function preventDefaults(e) {
@@ -616,31 +616,48 @@
   }
 
   function handleAction(id) {
-    if (id === 'dv-action-vault') {
-      // Toggle Drawer instead of opening new tab
-      const shadow = document.getElementById('dropvault-root').shadowRoot;
-      const drawer = shadow.querySelector('.dv-drawer');
-      const overlay = shadow.querySelector('.dv-drawer-overlay');
-      if (drawer.classList.contains('open')) {
-        drawer.classList.remove('open');
-        overlay.classList.remove('open');
-      } else {
-        drawer.classList.add('open');
-        overlay.classList.add('open');
-      }
-    } else if (id === 'dv-action-search') {
-      window.open('http://localhost:5173', '_blank');
-    } else if (id === 'dv-action-capture') {
-      if (window.openDropVaultModal) window.openDropVaultModal();
-    }
-    
     const container = shadowRoot.getElementById('dropvault-fab-container');
     const trigger = container.querySelector('.dropvault-fab-trigger');
     const menu = container.querySelector('.dropvault-fab-menu');
-    
-    trigger.classList.remove('active');
-    menu.classList.remove('active');
-    trigger.style.transform = 'rotate(0deg)';
+
+    if (id === 'dv-action-vault') {
+      // Toggle Drawer
+      const shadow = document.getElementById('dropvault-root').shadowRoot;
+      const drawer = shadow.querySelector('.dv-drawer');
+      // const overlay = shadow.querySelector('.dv-drawer-overlay'); // Removed overlay
+
+      if (drawer.classList.contains('open')) {
+        drawer.classList.remove('open');
+        // Reset page layout
+        document.documentElement.style.marginRight = '';
+        document.documentElement.style.transition = '';
+      } else {
+        drawer.classList.add('open');
+        // Shift page content
+        document.documentElement.style.transition = 'margin-right 0.3s cubic-bezier(0.4, 0, 0.2, 1)';
+        document.documentElement.style.marginRight = '320px';
+      }
+
+      // Instantly hide FAB
+      trigger.classList.remove('active');
+      menu.classList.remove('active');
+      trigger.style.transform = 'rotate(0deg)';
+      container.classList.add('side-hidden');
+      
+    } else if (id === 'dv-action-search') {
+      window.open('http://localhost:5173', '_blank');
+      // Standard close
+      trigger.classList.remove('active');
+      menu.classList.remove('active');
+      trigger.style.transform = 'rotate(0deg)';
+
+    } else if (id === 'dv-action-capture') {
+      if (window.openDropVaultModal) window.openDropVaultModal();
+      // Standard close
+      trigger.classList.remove('active');
+      menu.classList.remove('active');
+      trigger.style.transform = 'rotate(0deg)';
+    }
   }
 
   if (document.readyState === 'loading') {
