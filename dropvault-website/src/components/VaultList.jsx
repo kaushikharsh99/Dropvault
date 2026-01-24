@@ -92,6 +92,9 @@ const GridItemCard = ({ item, isSelectionMode, isSelected, onSelect, onClick }) 
     const ytId = getYoutubeId(url);
     const itemType = (item.type || "").toLowerCase();
     const isVid = ytId || getVimeoId(url) || getDailymotionId(url) || getTwitchId(url) || isTikTokUrl(url) || isInstagramReel(url) || isFacebookUrl(url) || itemType === 'video';
+    
+    // Prioritize backend metadata thumbnail, fallback to YT default
+    const displayThumbnail = item.thumbnail_path || (ytId ? `https://img.youtube.com/vi/${ytId}/hqdefault.jpg` : null);
 
     return (
     <motion.div 
@@ -111,21 +114,13 @@ const GridItemCard = ({ item, isSelectionMode, isSelected, onSelect, onClick }) 
         )}
         <div className="flex-grow-1 bg-light d-flex align-items-center justify-content-center position-relative overflow-hidden" style={{ minHeight: "140px" }}>
             {itemType === "image" ? <img src={item.file_path} alt="" className="w-100 h-100 object-fit-cover position-absolute" /> :
-             ytId ? (
-                 <React.Fragment>
-                     <img src={`https://img.youtube.com/vi/${ytId}/hqdefault.jpg`} alt="" className="w-100 h-100 object-fit-cover position-absolute" />
-                     <div className="position-absolute bg-dark bg-opacity-50 rounded-circle p-2 d-flex align-items-center justify-content-center" style={{ width: "40px", height: "40px" }}>
-                         <Play size={20} className="text-white fill-white" />
-                     </div>
-                 </React.Fragment>
-             ) :
              isVid ? (
-                 item.thumbnail_path ? (
+                 displayThumbnail ? (
                      <React.Fragment>
-                          <img src={item.thumbnail_path} alt="" className="w-100 h-100 object-fit-cover position-absolute" />
-                          <div className="position-absolute bg-dark bg-opacity-50 rounded-circle p-2 d-flex align-items-center justify-content-center" style={{ width: "40px", height: "40px" }}>
-                              <Play size={20} className="text-white fill-white" />
-                          </div>
+                         <img src={displayThumbnail} alt="" className="w-100 h-100 object-fit-cover position-absolute" />
+                         <div className="position-absolute bg-dark bg-opacity-50 rounded-circle p-2 d-flex align-items-center justify-content-center" style={{ width: "40px", height: "40px" }}>
+                             <Play size={20} className="text-white fill-white" />
+                         </div>
                      </React.Fragment>
                  ) : (
                      <div className="w-100 h-100 d-flex align-items-center justify-content-center bg-dark">

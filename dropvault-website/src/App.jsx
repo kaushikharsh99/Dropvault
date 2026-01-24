@@ -1,5 +1,6 @@
 import React, { useState } from "react";
-import { BrowserRouter } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import StandaloneDropZone from "./components/StandaloneDropZone";
 import { useAuth } from "./AuthContext";
 import { Container, Button, Navbar, Row, Col } from "react-bootstrap";
 import { motion, AnimatePresence } from "framer-motion";
@@ -292,7 +293,10 @@ function App() {
       <TooltipProvider>
         <Toaster />
         <ErrorBoundary>
-            {user ? <Dashboard /> : <LandingPage />}
+            <Routes>
+                <Route path="/" element={user ? <Dashboard /> : <LandingPage />} />
+                <Route path="/dropzone" element={user ? <StandaloneDropZone /> : <Navigate to="/" />} />
+            </Routes>
         </ErrorBoundary>
       </TooltipProvider>
     </BrowserRouter>

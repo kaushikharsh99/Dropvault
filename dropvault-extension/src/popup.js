@@ -5,7 +5,8 @@ import { onAuthStateChanged } from "firebase/auth";
 const views = {
   loading: document.getElementById('loading-view'),
   saveStatus: document.getElementById('save-status-view'),
-  auth: document.getElementById('auth-view')
+  auth: document.getElementById('auth-view'),
+  profile: document.getElementById('profile-view')
 };
 
 const elements = {
@@ -37,6 +38,12 @@ const elements = {
   signupName: document.getElementById('signup-name'),
   signupEmail: document.getElementById('signup-email'),
   signupPass: document.getElementById('signup-password'),
+  
+  // Profile View
+  profileEmail: document.getElementById('profile-email'),
+  manualCaptureBtn: document.getElementById('manual-capture-btn'),
+  profileOpenVaultBtn: document.getElementById('profile-open-vault-btn'),
+  profileSignoutBtn: document.getElementById('profile-signout-btn'),
 };
 
 // State
@@ -68,7 +75,8 @@ onAuthStateChanged(auth, (user) => {
   currentUser = user;
   if (user) {
     chrome.storage.local.set({ userId: user.uid });
-    autoCapture();
+    elements.profileEmail.textContent = user.email || "User";
+    showView('profile'); // Show profile view by default
   } else {
     showView('auth');
   }
@@ -87,13 +95,13 @@ async function autoCapture() {
   }
 
   if (!currentTab || currentTab.url.startsWith("chrome://") || currentTab.url.startsWith("about:") || currentTab.url.startsWith("edge://")) {
-      showView('saveStatus');
-      elements.saveMessage.textContent = "Cannot capture this system page.";
-      elements.saveMessage.style.color = "orange";
+      showView('profile'); // Go back to profile if invalid
+      alert("Cannot capture this system page.");
       return;
   }
 
   showView('loading');
+// ... (rest of autoCapture remains mostly the same, just careful about view transitions)
 
   // 1. YouTube Timestamp Logic
   let finalUrl = currentTab.url;
@@ -237,7 +245,7 @@ elements.tagBtns.forEach(btn => {
 });
 
 elements.openVaultBtn.addEventListener('click', () => {
-    chrome.tabs.create({ url: VAULT_URL });
+    chrome.tabs.create({ url: `${VAULT_URL}/dropzone` });
 });
 
 elements.undoBtn.addEventListener('click', async () => {
@@ -309,6 +317,24 @@ elements.googleLoginBtn.addEventListener('click', async () => {
   } catch (error) {
     elements.authError.textContent = error.message;
   }
+});
+
+// Profile View Actions
+elements.manualCaptureBtn.addEventListener('click', () => {
+    autoCapture();
+});
+
+elements.profileOpenVaultBtn.addEventListener('click', () => {
+    chrome.tabs.create({ url: VAULT_URL });
+});
+
+elements.profileSignoutBtn.addEventListener('click', async () => {
+    try {
+        await signOut(auth);
+        showView('auth');
+    } catch (e) {
+        console.error("Sign out failed", e);
+    }
 });
 
 init();

@@ -311,3 +311,44 @@ body {
   margin-top: 12px;
   min-height: 18px;
 }
+
+/* Profile View Styles */
+.profile-info {
+  text-align: center;
+  background: white;
+  padding: 16px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  margin-bottom: 20px;
+}
+
+.profile-info .text-muted {
+  color: var(--text-muted);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 4px;
+}
+
+.profile-info .fw-bold {
+  font-weight: 600;
+  color: var(--text);
+  font-size: 14px;
+}
+
+.menu-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.danger-text {
+  color: var(--danger) !important;
+  margin-top: 8px;
+  width: 100%;
+}
+
+.danger-text:hover {
+  background-color: #fef2f2;
+  border-radius: 8px;
+}

@@ -15,6 +15,7 @@ from PIL import Image
 import whisper
 import torch
 import gc
+import yt_dlp
 
 # Static for uploads
 UPLOAD_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "uploads")
@@ -170,6 +171,62 @@ def extract_text(file_path, type, content=None):
         text = transcribe_audio(file_path)
         return text, None, None
     elif type == "link" or (type == "video" and content and content.startswith("http")):
+        # Check for YouTube URL first for optimized metadata extraction
+        if content and ("youtube.com" in content or "youtu.be" in content):
+            try:
+                print(f"Extracting YouTube metadata: {content}")
+                ydl_opts = {
+                    'quiet': True,
+                    'no_warnings': True,
+                    'skip_download': True,
+                    'ignoreerrors': True,  # Prevent crashing on errors
+                    'writesubtitles': True, # Try to get subtitles metadata
+                    'writeautomaticsub': True
+                }
+                with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                    info = ydl.extract_info(content, download=False)
+                    
+                    if not info:
+                        raise Exception("yt-dlp returned no info")
+
+                    print(f"[DEBUG] Keys in info: {info.keys()}")
+                    title = info.get('title')
+                    # Try multiple keys for description
+                    desc = info.get('description') or info.get('full_description') or info.get('comment') or info.get('caption')
+                    print(f"[DEBUG] Extracted description length: {len(desc) if desc else 0}")
+                    
+                    uploader = info.get('uploader')
+                    upload_date = info.get('upload_date')
+                    thumbnail = info.get('thumbnail')
+                    tags = info.get('tags', [])
+                    
+                    # Try to extract captions text (simple approach)
+                    captions_text = ""
+                    try:
+                        # automatic_captions is a dict: {lang: [{url, ext}, ...]}
+                        # We won't download them here to keep it fast/light as requested,
+                        # but we can check if they exist to note it.
+                        # Real extraction of caption text without download is hard with just extract_info.
+                        pass 
+                    except: pass
+
+                    # Format content
+                    final_parts = [f"URL: {content}"]
+                    if title: final_parts.append(f"Title: {title}")
+                    
+                    if uploader: final_parts.append(f"Channel: {uploader}")
+                    if upload_date: final_parts.append(f"Date: {upload_date}")
+                    if tags: final_parts.append(f"Tags: {', '.join(tags)}")
+                    
+                    if desc: 
+                        final_parts.append("\n--- Video Description ---\n")
+                        final_parts.append(desc)
+                    
+                    return "\n".join(final_parts), title, thumbnail
+            except Exception as e:
+                print(f"YouTube Metadata Extraction Failed: {e}")
+                # Fallback to standard request logic below if yt-dlp fails
+        
         try:
             headers = {
                 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'

@@ -166,7 +166,8 @@ class ProcessingWorker:
             elif task['type'] == 'link':
                 task['ocr_text'], task['meta_title'], task['meta_image'] = extract_text(None, 'link', task['file_path'])
             elif task['type'] == 'video' and task['file_path'].startswith('http'):
-                task['ocr_text'], task['meta_title'], task['meta_image'] = extract_text(None, 'video', task['file_path'])
+                # Treat remote videos (YouTube) as links to get metadata only
+                task['ocr_text'], task['meta_title'], task['meta_image'] = extract_text(None, 'link', task['file_path'])
             elif task['type'] in ['note', 'text']:
                 item = get_item(task['id'], task['user_id'])
                 if item: task['ocr_text'] = item['content']
@@ -175,7 +176,11 @@ class ProcessingWorker:
             if task['type'] == 'image':
                 self.vision_queue.put(task)
             elif task['type'] == 'video':
-                self.vision_queue.put(task)
+                if task['file_path'].startswith('http'):
+                     # Remote videos (processed as links) skip vision/whisper
+                     self.embed_queue.put(task)
+                else:
+                     self.vision_queue.put(task)
             elif task['type'] == 'audio':
                 self.whisper_queue.put(task)
             else:

@@ -313,7 +313,7 @@
     menu.className = 'dropvault-fab-menu';
 
     const actions = [
-      { id: 'dv-action-vault', label: 'Open Vault', icon: '<svg class="dropvault-fab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5z"></path><path d="M2 17l10 5 10-5"></path><path d="M2 12l10 5 10-5"></path></svg>' },
+      { id: 'dv-action-vault', label: 'Open Drop Zone', icon: '<svg class="dropvault-fab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5z"></path><path d="M2 17l10 5 10-5"></path><path d="M2 12l10 5 10-5"></path></svg>' },
       { id: 'dv-action-search', label: 'Search', icon: '<svg class="dropvault-fab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>' },
       { id: 'dv-action-capture', label: 'Capture Page', icon: '<svg class="dropvault-fab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>' }
     ];
@@ -463,7 +463,7 @@
 
   function handleAction(id) {
     if (id === 'dv-action-vault') {
-      window.open('http://localhost:5173', '_blank');
+      window.open('http://localhost:5173/dropzone', '_blank');
     } else if (id === 'dv-action-search') {
       window.open('http://localhost:5173', '_blank');
     } else if (id === 'dv-action-capture') {

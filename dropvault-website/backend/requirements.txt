@@ -17,3 +17,4 @@ torch
 timm
 bitsandbytes
 accelerate
+yt-dlp
