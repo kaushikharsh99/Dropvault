@@ -670,7 +670,14 @@
       container.classList.add('side-hidden');
       
     } else if (id === 'dv-action-search') {
-      chrome.runtime.sendMessage({ action: "open-vault" });
+      console.log("Sending open-vault message");
+      chrome.runtime.sendMessage({ action: "open-vault" }, (response) => {
+          if (chrome.runtime.lastError) {
+              console.error("open-vault error:", chrome.runtime.lastError);
+          } else {
+              console.log("open-vault sent");
+          }
+      });
       // Standard close
       trigger.classList.remove('active');
       menu.classList.remove('active');
