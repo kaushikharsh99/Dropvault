@@ -3,6 +3,9 @@ const VAULT_URL = "http://localhost:5173";
 
 // Create context menus
 chrome.runtime.onInstalled.addListener(() => {
+  // Set the side panel to open on action click
+  chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true }).catch((error) => console.error(error));
+
   chrome.contextMenus.create({
     id: "open-vault",
     title: "Open Knowledge Vault",
