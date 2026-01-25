@@ -16,9 +16,9 @@ const HeroSection = ({ onLogin, onSignUp }) => {
           gap={25}
           baseColor="#271E37"
           activeColor="#5227FF"
-          proximity={120}
-          shockRadius={250}
-          shockStrength={5}
+          proximity={80}
+          shockRadius={150}
+          shockStrength={2}
           resistance={750}
           returnDuration={1.5}
         />
@@ -34,6 +34,9 @@ const HeroSection = ({ onLogin, onSignUp }) => {
   }
       <div className="absolute top-1/4 left-1/4 w-64 h-64 bg-primary/5 rounded-full blur-3xl animate-float z-[1]" />
       <div className="absolute bottom-1/3 right-1/4 w-96 h-96 bg-accent/5 rounded-full blur-3xl animate-float z-[1]" style={{ animationDelay: "2s" }} />
+
+      {/* Fade out transition to next section */}
+      <div className="absolute bottom-0 left-0 right-0 h-48 bg-gradient-to-t from-background via-background/80 to-transparent z-[2]" />
 
       <div className="container mx-auto px-6 relative z-10">
         <div className="max-w-4xl mx-auto text-center">
