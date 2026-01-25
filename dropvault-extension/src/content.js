@@ -647,6 +647,24 @@
     resetHideTimer();
   }
 
+  function safeSendMessage(message, callback) {
+      try {
+          if (!chrome.runtime?.id) throw new Error("Extension context invalidated");
+          chrome.runtime.sendMessage(message, (response) => {
+              if (chrome.runtime.lastError) {
+                  console.error(chrome.runtime.lastError);
+                  if (chrome.runtime.lastError.message.includes("Extension context invalidated")) {
+                      alert("Extension updated. Please refresh the page.");
+                  }
+              }
+              if (callback) callback(response);
+          });
+      } catch (e) {
+          console.error(e);
+          alert("Extension updated. Please refresh the page.");
+      }
+  }
+
   function handleAction(id) {
     const container = shadowRoot.getElementById('dropvault-fab-container');
     const trigger = container.querySelector('.dropvault-fab-trigger');
@@ -654,7 +672,7 @@
 
     if (id === 'dv-action-vault') {
       // Open Side Panel
-      chrome.runtime.sendMessage({ action: "open-side-panel" });
+      safeSendMessage({ action: "open-side-panel" });
 
       // Instantly hide FAB
       trigger.classList.remove('active');
@@ -663,7 +681,7 @@
       container.classList.add('side-hidden');
       
     } else if (id === 'dv-action-search') {
-      chrome.runtime.sendMessage({ action: "open-vault" });
+      safeSendMessage({ action: "open-vault" });
       // Standard close
       trigger.classList.remove('active');
       menu.classList.remove('active');
