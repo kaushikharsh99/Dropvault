@@ -59,7 +59,6 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
              });
     }
   } else if (request.action === "open-vault") {
-    console.log("Received open-vault request");
     chrome.tabs.create({ url: VAULT_URL });
   } else if (request.action === "trigger-capture") {
     // Legacy support or fallback

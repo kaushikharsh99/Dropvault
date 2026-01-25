@@ -654,14 +654,7 @@
 
     if (id === 'dv-action-vault') {
       // Open Side Panel
-      console.log("Sending open-side-panel message");
-      chrome.runtime.sendMessage({ action: "open-side-panel" }, (response) => {
-          if (chrome.runtime.lastError) {
-              console.error("Message error:", chrome.runtime.lastError);
-          } else {
-              console.log("Message sent", response);
-          }
-      });
+      chrome.runtime.sendMessage({ action: "open-side-panel" });
 
       // Instantly hide FAB
       trigger.classList.remove('active');
@@ -670,14 +663,7 @@
       container.classList.add('side-hidden');
       
     } else if (id === 'dv-action-search') {
-      console.log("Sending open-vault message");
-      chrome.runtime.sendMessage({ action: "open-vault" }, (response) => {
-          if (chrome.runtime.lastError) {
-              console.error("open-vault error:", chrome.runtime.lastError);
-          } else {
-              console.log("open-vault sent");
-          }
-      });
+      chrome.runtime.sendMessage({ action: "open-vault" });
       // Standard close
       trigger.classList.remove('active');
       menu.classList.remove('active');
