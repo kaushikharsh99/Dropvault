@@ -681,7 +681,8 @@
       container.classList.add('side-hidden');
       
     } else if (id === 'dv-action-search') {
-      safeSendMessage({ action: "open-vault" });
+      window.open('http://localhost:5173', '_blank');
+      
       // Standard close
       trigger.classList.remove('active');
       menu.classList.remove('active');
