@@ -14,7 +14,8 @@
     "sidePanel"
   ],
   "side_panel": {
-    "default_path": "src/sidepanel.html"
+    "default_path": "src/sidepanel.html",
+    "default_width": 320
   },
   "host_permissions": [
     "<all_urls>"
