@@ -49,12 +49,14 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.action === "open-side-panel") {
     // Open side panel for the current window
-    // Note: This requires a user gesture, so it must be called from a click handler
-    if (sender.tab && sender.tab.windowId) {
-        chrome.sidePanel.open({ windowId: sender.tab.windowId })
-            .catch((error) => console.error("Failed to open side panel:", error));
-    } else {
-        console.error("Sender tab or windowId missing", sender);
+    // This requires a user gesture chain from content script -> background
+    if (sender?.tab?.windowId) {
+         chrome.sidePanel.open({ windowId: sender.tab.windowId })
+             .catch(err => {
+                 console.error("Side Panel Open Error:", err);
+                 // Fallback notification if it fails (e.g. lost gesture)
+                 notify("Action Required", "Please click the extension icon to open the side panel.");
+             });
     }
   } else if (request.action === "trigger-capture") {
     // Legacy support or fallback

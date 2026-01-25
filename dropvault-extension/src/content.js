@@ -653,18 +653,17 @@
     const menu = container.querySelector('.dropvault-fab-menu');
 
     if (id === 'dv-action-vault') {
-      // Show instruction
-      addStatusItem('Click the DropVault icon 🧩 in your toolbar to open the Side Panel.', 'info');
-      
-      // Highlight the instruction
-      const lastItem = statusList.querySelector('.dv-status-item:first-child');
-      if (lastItem) {
-          lastItem.style.background = '#eff6ff';
-          lastItem.style.color = '#1d4ed8';
-          setTimeout(() => lastItem.remove(), 8000);
-      }
+      // Open Side Panel
+      console.log("Sending open-side-panel message");
+      chrome.runtime.sendMessage({ action: "open-side-panel" }, (response) => {
+          if (chrome.runtime.lastError) {
+              console.error("Message error:", chrome.runtime.lastError);
+          } else {
+              console.log("Message sent", response);
+          }
+      });
 
-      // Hide FAB
+      // Instantly hide FAB
       trigger.classList.remove('active');
       menu.classList.remove('active');
       trigger.style.transform = 'rotate(0deg)';
