@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import StandaloneDropZone from "./components/StandaloneDropZone";
 import { useAuth } from "./AuthContext";
+import { ThemeProvider } from "./ThemeContext";
 import { Container, Button, Navbar, Row, Col } from "react-bootstrap";
 import { motion, AnimatePresence } from "framer-motion";
 import { Search, LogOut, User, ArrowRight, ArrowLeft, Library, Box, Loader2 } from "lucide-react";
@@ -289,17 +290,19 @@ const Dashboard = () => {
 function App() {
   const { user } = useAuth();
   return (
-    <BrowserRouter>
-      <TooltipProvider>
-        <Toaster />
-        <ErrorBoundary>
-            <Routes>
-                <Route path="/" element={user ? <Dashboard /> : <LandingPage />} />
-                <Route path="/dropzone" element={user ? <StandaloneDropZone /> : <Navigate to="/" />} />
-            </Routes>
-        </ErrorBoundary>
-      </TooltipProvider>
-    </BrowserRouter>
+    <ThemeProvider>
+      <BrowserRouter>
+        <TooltipProvider>
+          <Toaster />
+          <ErrorBoundary>
+              <Routes>
+                  <Route path="/" element={user ? <Dashboard /> : <LandingPage />} />
+                  <Route path="/dropzone" element={user ? <StandaloneDropZone /> : <Navigate to="/" />} />
+              </Routes>
+          </ErrorBoundary>
+        </TooltipProvider>
+      </BrowserRouter>
+    </ThemeProvider>
   );
 }
 
