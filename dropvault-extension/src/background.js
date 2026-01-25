@@ -50,7 +50,12 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.action === "open-side-panel") {
     // Open side panel for the current window
     // Note: This requires a user gesture, so it must be called from a click handler
-    chrome.sidePanel.open({ windowId: sender.tab.windowId });
+    if (sender.tab && sender.tab.windowId) {
+        chrome.sidePanel.open({ windowId: sender.tab.windowId })
+            .catch((error) => console.error("Failed to open side panel:", error));
+    } else {
+        console.error("Sender tab or windowId missing", sender);
+    }
   } else if (request.action === "trigger-capture") {
     // Legacy support or fallback
     handleSaveCommand(sender.tab);

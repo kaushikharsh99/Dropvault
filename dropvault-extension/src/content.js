@@ -654,7 +654,14 @@
 
     if (id === 'dv-action-vault') {
       // Open Side Panel
-      chrome.runtime.sendMessage({ action: "open-side-panel" });
+      console.log("Sending open-side-panel message");
+      chrome.runtime.sendMessage({ action: "open-side-panel" }, (response) => {
+          if (chrome.runtime.lastError) {
+              console.error("Message error:", chrome.runtime.lastError);
+          } else {
+              console.log("Message sent", response);
+          }
+      });
 
       // Instantly hide FAB
       trigger.classList.remove('active');
