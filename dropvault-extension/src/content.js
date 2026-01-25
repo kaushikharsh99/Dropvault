@@ -670,13 +670,7 @@
       container.classList.add('side-hidden');
       
     } else if (id === 'dv-action-search') {
-      trigger.classList.remove('active');
-      menu.classList.remove('active');
-      trigger.style.transform = 'rotate(0deg)';
-      container.classList.add('side-hidden');
-      
-    } else if (id === 'dv-action-search') {
-      window.open('http://localhost:5173', '_blank');
+      chrome.runtime.sendMessage({ action: "open-vault" });
       // Standard close
       trigger.classList.remove('active');
       menu.classList.remove('active');

@@ -58,6 +58,8 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                  notify("Action Required", "Please click the extension icon to open the side panel.");
              });
     }
+  } else if (request.action === "open-vault") {
+    chrome.tabs.create({ url: VAULT_URL });
   } else if (request.action === "trigger-capture") {
     // Legacy support or fallback
     handleSaveCommand(sender.tab);
