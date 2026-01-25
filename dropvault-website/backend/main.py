@@ -24,6 +24,7 @@ from .database import init_db, add_item, get_all_items, delete_item, delete_item
 from .vision import detect_objects
 from .media_utils import UPLOAD_DIR, extract_text, extract_text_from_image, generate_video_thumbnail, transcribe_audio
 from .worker import worker, manager
+from .synonyms import expand_query
 
 app = FastAPI()
 
@@ -500,11 +501,16 @@ def get_recency_boost(created_at_str):
 async def search(q: str, userId: str = None):
     cleaned_q, start_date, end_date, type_filter, filter_desc = parse_search_intent(q)
     
+    # --- Step 5: Query Expansion ---
+    expanded_q = expand_query(cleaned_q)
+    
     q_vec = None
     query_keywords = set()
     if cleaned_q:
-        q_vec = query_embedding(cleaned_q)
-        query_keywords = get_keywords(cleaned_q)
+        # Use expanded query for embedding to improve semantic recall
+        q_vec = query_embedding(expanded_q if expanded_q else cleaned_q)
+        # Use expanded words for keyword matching to handle synonyms
+        query_keywords = get_keywords(expanded_q if expanded_q else cleaned_q)
     
     all_chunks = get_all_chunks(userId)
     
