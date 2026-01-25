@@ -20,7 +20,7 @@ from PIL import Image
 import whisper
 from io import BytesIO
 from .ai import generate_embedding, query_embedding, cosine_sim
-from .database import init_db, add_item, get_all_items, delete_item, delete_items, update_item, get_item, get_all_items_with_embeddings, get_all_tags, get_processing_items
+from .database import init_db, add_item, get_all_items, delete_item, delete_items, update_item, get_item, get_all_items_with_embeddings, get_all_tags, get_processing_items, get_all_chunks
 from .vision import detect_objects
 from .media_utils import UPLOAD_DIR, extract_text, extract_text_from_image, generate_video_thumbnail, transcribe_audio
 from .worker import worker, manager
@@ -461,6 +461,13 @@ def parse_search_intent(query):
 
     return query.strip(), start_date, end_date, type_filter, ", ".join(filter_desc)
 
+CHUNK_WEIGHTS = {
+    "visual": 1.5,      # OWL-ViT objects - highest precision
+    "caption": 1.3,     # BLIP description - high signal
+    "ocr": 1.0,         # document text - standard
+    "transcript": 0.7   # spoken text - high noise
+}
+
 @app.get("/api/search")
 async def search(q: str, userId: str = None):
     cleaned_q, start_date, end_date, type_filter, filter_desc = parse_search_intent(q)
@@ -468,94 +475,86 @@ async def search(q: str, userId: str = None):
     q_vec = None
     if cleaned_q:
         q_vec = query_embedding(cleaned_q)
-            
-    items = get_all_items_with_embeddings(userId)
-    results = []
     
-    if q_vec is not None:
-        q_vec = np.array(q_vec)
-
-    for item in items:
+    all_chunks = get_all_chunks(userId)
+    
+    chunk_scores = []
+    
+    for chunk in all_chunks:
+        # 1. Metadata Filtering
         if type_filter:
-            if item['type'] != type_filter:
-                if type_filter == 'link' and item['type'] == 'article': pass
-                elif type_filter == 'pdf' and item['type'] == 'file': pass
-                else: continue
+            c_type = chunk['item_type']
+            match = False
+            if type_filter == c_type: match = True
+            elif type_filter == 'link' and c_type == 'article': match = True
+            elif type_filter == 'pdf' and c_type == 'file': match = True
+            if not match: continue
 
         if start_date and end_date:
             try:
-                item_date = datetime.strptime(item['created_at'], "%Y-%m-%d %H:%M:%S")
+                item_date = datetime.strptime(chunk['created_at'], "%Y-%m-%d %H:%M:%S")
                 if not (start_date <= item_date <= end_date):
                     continue
             except:
                 continue
 
+        # 2. Scoring with Modality Weighting
         score = 0
-        explanation = ""
-        
-        if q_vec is not None and item['embedding']:
+        if q_vec is not None and chunk['embedding']:
             try:
-                item_vec = np.array(json.loads(item['embedding']))
-                text_score = cosine_sim(q_vec, item_vec)
-                if text_score > score:
-                    score = text_score
-                    if text_score > 0.3:
-                        explanation = f"Matched '{cleaned_q}' semantically."
-            except: pass
+                chunk_vec = json.loads(chunk['embedding'])
+                raw_score = cosine_sim(q_vec, chunk_vec)
+                # Apply Weighting based on chunk type
+                weight = CHUNK_WEIGHTS.get(chunk['chunk_type'], 1.0)
+                score = raw_score * weight
+            except: score = 0
+        
+        if score > 0.2 or (not cleaned_q):
+             chunk_scores.append({
+                 "item_id": chunk['item_id'],
+                 "score": score,
+                 "chunk_type": chunk['chunk_type'],
+                 "text": chunk['text'],
+                 "item_title": chunk['title']
+             })
 
-        if cleaned_q and item['tags']:
-            item_tags = [t.strip().lower() for t in item['tags'].split(',')]
-            # 1. Exact Tag Match (Highest Priority)
-            if cleaned_q in item_tags:
-                score = max(score, 2.5) 
-                explanation = f"Exact tag match." 
-            # 2. Query matches start of a tag (High Priority)
-            elif any(t.startswith(cleaned_q) for t in item_tags):
-                score = max(score, 1.8)
-                explanation = f"Tag starts with query."
-            # 3. Query contained in a tag (Medium-High Priority)
-            elif any(cleaned_q in t for t in item_tags):
-                score = max(score, 1.2)
-                explanation = f"Tag contains query."
-            elif any(word in item_tags for word in cleaned_q.split()):
-                score += 0.2
-                explanation += " Word in tag match."
-
-        if cleaned_q and item['title'] and cleaned_q in item['title'].lower():
-            score = max(score, 0.9)
-            explanation = "Exact title match."
-
-        # IMPROVED CONTENT MATCHING
-        if cleaned_q and item['content']:
-            content_lower = item['content'].lower()
-            
-            # 1. Exact phrase match (High confidence)
-            if cleaned_q in content_lower:
-                if score < 0.8:
-                    score = max(score, 0.8)
-                    explanation = "Exact match in content."
-                else:
-                    score += 0.1
-                    explanation += " + Content match."
-            
-            # 2. Partial keyword match (Medium confidence)
-            elif len(cleaned_q.split()) > 1:
-                query_tokens = cleaned_q.split()
-                matches = sum(1 for token in query_tokens if token in content_lower)
-                match_ratio = matches / len(query_tokens)
-                
-                if match_ratio >= 0.75: # 75% of words found
-                     score = max(score, 0.6)
-                     explanation += " Most keywords found in content."
-                elif match_ratio >= 0.5: # 50% of words found
-                     score = max(score, 0.4)
-                     explanation += " Some keywords found in content."
-
-        if score > 0.25 or (not cleaned_q and (start_date or type_filter)):
-             results.append({**item, "score": float(score), "explanation": explanation + (f" ({filter_desc})" if filter_desc else "")})
+    # Sort chunks
+    chunk_scores.sort(key=lambda x: x["score"], reverse=True)
     
-    results.sort(key=lambda x: x["score"], reverse=True)
-    return results[:15]
+    # Aggregation
+    item_map = {}
+    for c in chunk_scores: 
+        iid = c['item_id']
+        if iid not in item_map:
+            item_map[iid] = {
+                "score": c['score'],
+                "best_chunk": c,
+                "matches": [c]
+            }
+        else:
+            if c['score'] > item_map[iid]['score']:
+                item_map[iid]['score'] = c['score']
+                item_map[iid]['best_chunk'] = c
+            if len(item_map[iid]['matches']) < 3:
+                item_map[iid]['matches'].append(c)
+
+    results_list = []
+    for iid, data in item_map.items():
+        item = get_item(iid, userId)
+        if not item: continue
+        
+        item['score'] = float(data['score'])
+        
+        best = data['best_chunk']
+        explanation = f"Matched {best['chunk_type']}: \"{best['text'][:100]}...\""
+        if filter_desc:
+            explanation += f" ({filter_desc})"
+            
+        item['explanation'] = explanation
+        results_list.append(item)
+
+    results_list.sort(key=lambda x: x['score'], reverse=True)
+    return results_list[:20]
 
 @app.get("/api/items/{item_id}")
 async def get_single_item(item_id: int, userId: str = None):

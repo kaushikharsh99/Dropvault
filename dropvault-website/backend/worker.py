@@ -10,7 +10,8 @@ import torch
 import gc
 from concurrent.futures import ThreadPoolExecutor
 
-from .database import update_item, get_item, get_processing_items
+from .database import update_item, get_item, get_processing_items, insert_chunk
+from .chunker import split_text
 from .media_utils import (
     extract_text_from_image, 
     extract_text,
@@ -297,6 +298,27 @@ class ProcessingWorker:
                 task = self.embed_queue.get(timeout=1)
                 self.update_progress(task, "embed", 90, "Finalizing...")
                 
+                # --- CHUNKING STEP (Step 1 Fix) ---
+                # 1. OCR Chunks
+                if task['ocr_text']:
+                    for part in split_text(task['ocr_text']):
+                        insert_chunk(task['id'], "ocr", part, generate_embedding(part))
+                        
+                # 2. Vision Caption Chunk
+                if task['vision_caption']:
+                    insert_chunk(task['id'], "caption", task['vision_caption'], generate_embedding(task['vision_caption']))
+                    
+                # 3. Visual Tags Chunk
+                if task['vision_tags']:
+                    tags_text = "Objects detected: " + ", ".join(task['vision_tags'])
+                    insert_chunk(task['id'], "visual", tags_text, generate_embedding(tags_text))
+                    
+                # 4. Transcript Chunks
+                if task['transcript']:
+                    for part in split_text(task['transcript']):
+                        insert_chunk(task['id'], "transcript", part, generate_embedding(part))
+
+                # --- ORIGINAL AGGREGATION (Legacy Support) ---
                 parts = []
                 if task['ocr_text']: parts.append(task['ocr_text'])
                 if task['vision_caption']: parts.append(f"AI Description: {task['vision_caption']}")

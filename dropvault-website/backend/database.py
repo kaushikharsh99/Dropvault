@@ -70,6 +70,15 @@ def init_db():
     
     # Add index for faster queries
     c.execute("CREATE INDEX IF NOT EXISTS idx_user_id ON items(user_id)")
+    
+    # Chunking Table
+    c.execute('''CREATE TABLE IF NOT EXISTS chunks
+                 (id INTEGER PRIMARY KEY AUTOINCREMENT,
+                  item_id INTEGER,
+                  type TEXT,
+                  text TEXT,
+                  embedding TEXT,
+                  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)''')
         
     conn.commit()
     conn.close()
@@ -78,6 +87,37 @@ def init_db():
 def get_db_path():
     base_dir = os.path.dirname(os.path.abspath(__file__))
     return os.path.join(base_dir, DB_NAME)
+
+def insert_chunk(item_id, type, text, embedding):
+    conn = sqlite3.connect(get_db_path())
+    c = conn.cursor()
+    embedding_json = json.dumps(embedding) if embedding else None
+    c.execute("INSERT INTO chunks (item_id, type, text, embedding) VALUES (?, ?, ?, ?)", (item_id, type, text, embedding_json))
+    conn.commit()
+    conn.close()
+
+def get_all_chunks(user_id=None):
+    conn = sqlite3.connect(get_db_path())
+    conn.row_factory = sqlite3.Row
+    c = conn.cursor()
+    
+    # Join with items to get user_id and item metadata for filtering
+    query = """
+        SELECT c.id, c.item_id, c.type as chunk_type, c.text, c.embedding, 
+               i.user_id, i.type as item_type, i.created_at, i.title
+        FROM chunks c
+        JOIN items i ON c.item_id = i.id
+    """
+    params = []
+    
+    if user_id:
+        query += " WHERE i.user_id = ?"
+        params.append(user_id)
+        
+    c.execute(query, tuple(params))
+    rows = c.fetchall()
+    conn.close()
+    return [dict(row) for row in rows]
 
 def add_item(title, type, content, notes, file_path, embedding, tags="", user_id=None, thumbnail_path=None, status="completed", progress_stage="done", progress_percent=100, progress_message=""):
     conn = sqlite3.connect(get_db_path())
