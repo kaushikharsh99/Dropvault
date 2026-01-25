@@ -10,8 +10,12 @@
     "scripting",
     "contextMenus",
     "notifications",
-    "downloads"
+    "downloads",
+    "sidePanel"
   ],
+  "side_panel": {
+    "default_path": "src/sidepanel.html"
+  },
   "host_permissions": [
     "<all_urls>"
   ],

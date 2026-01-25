@@ -44,7 +44,11 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
 
 // Handle Messages
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-  if (request.action === "trigger-capture") {
+  if (request.action === "open-side-panel") {
+    // Open side panel for the current window
+    // Note: This requires a user gesture, so it must be called from a click handler
+    chrome.sidePanel.open({ windowId: sender.tab.windowId });
+  } else if (request.action === "trigger-capture") {
     // Legacy support or fallback
     handleSaveCommand(sender.tab);
   } else if (request.action === "trigger-capture-with-data") {

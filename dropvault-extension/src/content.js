@@ -653,20 +653,8 @@
     const menu = container.querySelector('.dropvault-fab-menu');
 
     if (id === 'dv-action-vault') {
-      // Toggle Drawer
-      const shadow = document.getElementById('dropvault-root').shadowRoot;
-      const drawer = shadow.querySelector('.dv-drawer');
-      // const overlay = shadow.querySelector('.dv-drawer-overlay'); // Removed overlay
-
-      if (drawer.classList.contains('open')) {
-        drawer.classList.remove('open');
-        document.documentElement.classList.remove('dv-shift-layout');
-        document.body.classList.remove('dv-shift-layout');
-      } else {
-        drawer.classList.add('open');
-        document.documentElement.classList.add('dv-shift-layout');
-        document.body.classList.add('dv-shift-layout');
-      }
+      // Open Side Panel
+      chrome.runtime.sendMessage({ action: "open-side-panel" });
 
       // Instantly hide FAB
       trigger.classList.remove('active');
