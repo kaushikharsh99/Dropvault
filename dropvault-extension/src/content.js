@@ -675,6 +675,7 @@
       trigger.classList.remove('active');
       menu.classList.remove('active');
       trigger.style.transform = 'rotate(0deg)';
+      container.classList.add('side-hidden');
 
     } else if (id === 'dv-action-capture') {
       if (window.openDropVaultModal) window.openDropVaultModal();
