@@ -468,17 +468,48 @@ CHUNK_WEIGHTS = {
     "transcript": 0.7   # spoken text - high noise
 }
 
+VISUAL_HINTS = ["diagram", "image", "photo", "chart", "whiteboard", "picture", "screenshot"]
+AUDIO_HINTS = ["said", "meeting", "audio", "voice", "discussion", "podcast", "recording"]
+
+def get_keywords(text):
+    return set(w.lower() for w in text.split() if len(w) > 3)
+
+def keyword_overlap_score(query_words, text):
+    if not text: return 0
+    words = set(text.lower().split())
+    return len(query_words & words)
+
+def get_modality_boost(query, chunk_type):
+    q = query.lower()
+    if any(w in q for w in VISUAL_HINTS) and chunk_type in ["visual", "caption"]:
+        return 0.05
+    if any(w in q for w in AUDIO_HINTS) and chunk_type == "transcript":
+        return 0.05
+    return 0
+
+def get_recency_boost(created_at_str):
+    try:
+        item_date = datetime.strptime(created_at_str, "%Y-%m-%d %H:%M:%S")
+        days_old = (datetime.now() - item_date).days
+        if days_old < 7: return 0.05
+        if days_old < 30: return 0.02
+    except: pass
+    return 0
+
 @app.get("/api/search")
 async def search(q: str, userId: str = None):
     cleaned_q, start_date, end_date, type_filter, filter_desc = parse_search_intent(q)
     
     q_vec = None
+    query_keywords = set()
     if cleaned_q:
         q_vec = query_embedding(cleaned_q)
+        query_keywords = get_keywords(cleaned_q)
     
     all_chunks = get_all_chunks(userId)
     
-    chunk_scores = []
+    # --- STAGE 1: Recall (Vector Search) ---
+    candidates = []
     
     for chunk in all_chunks:
         # 1. Metadata Filtering
@@ -498,7 +529,7 @@ async def search(q: str, userId: str = None):
             except:
                 continue
 
-        # 2. Scoring with Modality Weighting
+        # 2. Vector Scoring
         score = 0
         if q_vec is not None and chunk['embedding']:
             try:
@@ -509,17 +540,95 @@ async def search(q: str, userId: str = None):
                 score = raw_score * weight
             except: score = 0
         
-        if score > 0.2 or (not cleaned_q):
-             chunk_scores.append({
+        if score > 0.15 or (not cleaned_q): # Lowered threshold for recall stage
+             candidates.append({
                  "item_id": chunk['item_id'],
-                 "score": score,
+                 "vector_score": score,
                  "chunk_type": chunk['chunk_type'],
                  "text": chunk['text'],
+                 "created_at": chunk['created_at'],
                  "item_title": chunk['title']
              })
 
-    # Sort chunks
-    chunk_scores.sort(key=lambda x: x["score"], reverse=True)
+    # Sort by vector score and keep top 60
+    candidates.sort(key=lambda x: x["vector_score"], reverse=True)
+    top_candidates = candidates[:60]
+    
+    # --- STAGE 2: Reranking (Precision) ---
+    reranked_chunks = []
+    
+    for c in top_candidates:
+        final_score = c['vector_score']
+        boosts = []
+        
+        # Keyword Boost
+        overlap = keyword_overlap_score(query_keywords, c['text'])
+        if overlap > 0:
+            boost = 0.05 * overlap
+            final_score += boost
+            boosts.append(f"+Key({overlap})")
+            
+        # Modality Boost
+        mod_boost = get_modality_boost(cleaned_q, c['chunk_type'])
+        if mod_boost > 0:
+            final_score += mod_boost
+            boosts.append("+Mode")
+            
+        # Recency Boost
+        rec_boost = get_recency_boost(c['created_at'])
+        if rec_boost > 0:
+            final_score += rec_boost
+            boosts.append("+New")
+            
+        c['final_score'] = final_score
+        c['boosts'] = " ".join(boosts)
+        reranked_chunks.append(c)
+
+    # Aggregation by Item (Multi-chunk evidence)
+    item_map = {}
+    for c in reranked_chunks: 
+        iid = c['item_id']
+        if iid not in item_map:
+            item_map[iid] = {
+                "chunks": [c]
+            }
+        else:
+            item_map[iid]['chunks'].append(c)
+
+    results_list = []
+    for iid, data in item_map.items():
+        chunks = data['chunks']
+        # Find best chunk
+        best_chunk = max(chunks, key=lambda x: x['final_score'])
+        
+        # Item Score = Best Chunk + Evidence Bonus
+        item_score = best_chunk['final_score']
+        
+        # Add 0.03 for every additional supporting chunk (capped at 5)
+        evidence_count = len(chunks) - 1
+        if evidence_count > 0:
+            bonus = min(0.15, 0.03 * evidence_count)
+            item_score += bonus
+        
+        item = get_item(iid, userId)
+        if not item: continue
+        
+        item['score'] = float(item_score)
+        
+        explanation = f"Matched {best_chunk['chunk_type']}: \"{best_chunk['text'][:100]}...\""
+        if best_chunk['boosts']:
+            explanation += f" [{best_chunk['boosts']}]"
+        if evidence_count > 0:
+            explanation += f" (+{evidence_count} more)"
+            
+        if filter_desc:
+            explanation += f" ({filter_desc})"
+            
+        item['explanation'] = explanation
+        results_list.append(item)
+
+    results_list.sort(key=lambda x: x['score'], reverse=True)
+    return results_list[:20]
     
     # Aggregation
     item_map = {}
