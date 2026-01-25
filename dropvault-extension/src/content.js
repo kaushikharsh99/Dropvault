@@ -360,12 +360,19 @@
         document.documentElement.style.marginRight = '';
         document.documentElement.style.width = '';
         document.documentElement.style.transition = '';
+        document.body.style.marginRight = '';
+        document.body.style.width = '';
+        document.body.style.transition = '';
       } else {
         drawer.classList.add('open');
         // Shift page content
-        document.documentElement.style.transition = 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)';
+        const transition = 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)';
+        document.documentElement.style.transition = transition;
         document.documentElement.style.marginRight = '320px';
         document.documentElement.style.width = 'calc(100% - 320px)';
+        document.body.style.transition = transition;
+        document.body.style.marginRight = '320px';
+        document.body.style.width = 'calc(100% - 320px)';
       }
     }
 
@@ -651,12 +658,19 @@
         document.documentElement.style.marginRight = '';
         document.documentElement.style.width = '';
         document.documentElement.style.transition = '';
+        document.body.style.marginRight = '';
+        document.body.style.width = '';
+        document.body.style.transition = '';
       } else {
         drawer.classList.add('open');
         // Shift page content
-        document.documentElement.style.transition = 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)';
+        const transition = 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)';
+        document.documentElement.style.transition = transition;
         document.documentElement.style.marginRight = '320px';
         document.documentElement.style.width = 'calc(100% - 320px)';
+        document.body.style.transition = transition;
+        document.body.style.marginRight = '320px';
+        document.body.style.width = 'calc(100% - 320px)';
       }
 
       // Instantly hide FAB
