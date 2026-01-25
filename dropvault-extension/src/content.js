@@ -649,12 +649,14 @@
         drawer.classList.remove('open');
         // Reset page layout
         document.documentElement.style.marginRight = '';
+        document.documentElement.style.width = '';
         document.documentElement.style.transition = '';
       } else {
         drawer.classList.add('open');
         // Shift page content
-        document.documentElement.style.transition = 'margin-right 0.3s cubic-bezier(0.4, 0, 0.2, 1)';
+        document.documentElement.style.transition = 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)';
         document.documentElement.style.marginRight = '320px';
+        document.documentElement.style.width = 'calc(100% - 320px)';
       }
 
       // Instantly hide FAB
