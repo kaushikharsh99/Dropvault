@@ -7,6 +7,23 @@
     const target = document.body || document.documentElement;
     if (!target) return;
 
+    // Inject global styles for split-screen layout
+    if (!document.getElementById('dropvault-global-styles')) {
+        const globalStyle = document.createElement('style');
+        globalStyle.id = 'dropvault-global-styles';
+        globalStyle.textContent = `
+            .dv-shift-layout {
+                width: calc(100% - 320px) !important;
+                margin-right: 320px !important;
+                transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+                box-sizing: border-box !important;
+                position: relative !important;
+                left: 0 !important;
+            }
+        `;
+        document.head.appendChild(globalStyle);
+    }
+
     const host = document.createElement('div');
     host.id = 'dropvault-root';
     host.style.all = 'initial';
@@ -356,23 +373,12 @@
       const isOpen = drawer.classList.contains('open');
       if (isOpen) {
         drawer.classList.remove('open');
-        // Reset page layout
-        document.documentElement.style.marginRight = '';
-        document.documentElement.style.width = '';
-        document.documentElement.style.transition = '';
-        document.body.style.marginRight = '';
-        document.body.style.width = '';
-        document.body.style.transition = '';
+        document.documentElement.classList.remove('dv-shift-layout');
+        document.body.classList.remove('dv-shift-layout');
       } else {
         drawer.classList.add('open');
-        // Shift page content
-        const transition = 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)';
-        document.documentElement.style.transition = transition;
-        document.documentElement.style.marginRight = '320px';
-        document.documentElement.style.width = 'calc(100% - 320px)';
-        document.body.style.transition = transition;
-        document.body.style.marginRight = '320px';
-        document.body.style.width = 'calc(100% - 320px)';
+        document.documentElement.classList.add('dv-shift-layout');
+        document.body.classList.add('dv-shift-layout');
       }
     }
 
@@ -654,23 +660,12 @@
 
       if (drawer.classList.contains('open')) {
         drawer.classList.remove('open');
-        // Reset page layout
-        document.documentElement.style.marginRight = '';
-        document.documentElement.style.width = '';
-        document.documentElement.style.transition = '';
-        document.body.style.marginRight = '';
-        document.body.style.width = '';
-        document.body.style.transition = '';
+        document.documentElement.classList.remove('dv-shift-layout');
+        document.body.classList.remove('dv-shift-layout');
       } else {
         drawer.classList.add('open');
-        // Shift page content
-        const transition = 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)';
-        document.documentElement.style.transition = transition;
-        document.documentElement.style.marginRight = '320px';
-        document.documentElement.style.width = 'calc(100% - 320px)';
-        document.body.style.transition = transition;
-        document.body.style.marginRight = '320px';
-        document.body.style.width = 'calc(100% - 320px)';
+        document.documentElement.classList.add('dv-shift-layout');
+        document.body.classList.add('dv-shift-layout');
       }
 
       // Instantly hide FAB
