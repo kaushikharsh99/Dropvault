@@ -3,21 +3,37 @@ import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Play } from "lucide-react";
 import heroVisual from "@/assets/hero-visual.png";
+import DotGrid from './DotGrid';
 
 const HeroSection = ({ onLogin, onSignUp }) => {
   const [isHovered, setIsHovered] = useState(false);
 
   return <section className="relative min-h-screen flex items-center justify-center pt-16 overflow-hidden">
+      {/* Background Dot Grid */}
+      <div className="absolute inset-0 z-0 opacity-50">
+        <DotGrid
+          dotSize={5}
+          gap={25}
+          baseColor="#271E37"
+          activeColor="#5227FF"
+          proximity={120}
+          shockRadius={250}
+          shockStrength={5}
+          resistance={750}
+          returnDuration={1.5}
+        />
+      </div>
+
       {
-    /* Background gradient */
+    /* Background gradient overlay to soften the grid */
   }
-      <div className="absolute inset-0 hero-glow" />
+      <div className="absolute inset-0 hero-glow z-[1]" />
       
       {
     /* Floating orbs */
   }
-      <div className="absolute top-1/4 left-1/4 w-64 h-64 bg-primary/5 rounded-full blur-3xl animate-float" />
-      <div className="absolute bottom-1/3 right-1/4 w-96 h-96 bg-accent/5 rounded-full blur-3xl animate-float" style={{ animationDelay: "2s" }} />
+      <div className="absolute top-1/4 left-1/4 w-64 h-64 bg-primary/5 rounded-full blur-3xl animate-float z-[1]" />
+      <div className="absolute bottom-1/3 right-1/4 w-96 h-96 bg-accent/5 rounded-full blur-3xl animate-float z-[1]" style={{ animationDelay: "2s" }} />
 
       <div className="container mx-auto px-6 relative z-10">
         <div className="max-w-4xl mx-auto text-center">
