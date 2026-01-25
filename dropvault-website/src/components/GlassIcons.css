@@ -12,9 +12,9 @@
   background-color: transparent;
   outline: none;
   position: relative;
-  width: 4.5em;
-  height: 4.5em;
-  perspective: 24em;
+  width: 7em;
+  height: 7em;
+  perspective: 32em;
   transform-style: preserve-3d;
   -webkit-tap-highlight-color: transparent;
   border: none;
@@ -62,8 +62,8 @@
 
 .icon-btn__icon {
   margin: auto;
-  width: 2em; /* Slightly larger icon container */
-  height: 2em;
+  width: 3.5em; /* Slightly larger icon container */
+  height: 3.5em;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -76,7 +76,7 @@
 }
 
 .icon-btn__label {
-  font-size: 0.9em;
+  font-size: 1.1em;
   white-space: nowrap;
   text-align: center;
   line-height: 2;
