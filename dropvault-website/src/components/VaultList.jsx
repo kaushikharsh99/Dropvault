@@ -387,7 +387,7 @@ const VaultList = ({ searchQuery = "", activeTags = [], viewMode = "list", limit
       } else {
           fetchItems(true);
       }
-  }, [user, searchQuery, activeTags, refreshTrigger, limit, activeFilter]);
+  }, [user, searchQuery, activeTags.join(","), refreshTrigger, limit, activeFilter]);
 
   useEffect(() => {
       if (selectedItem) {
