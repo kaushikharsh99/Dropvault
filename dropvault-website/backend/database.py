@@ -106,7 +106,14 @@ def init_db():
                   refresh_token TEXT,
                   scope TEXT,
                   connected_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                  last_synced_at TIMESTAMP,
                   PRIMARY KEY (user_id, provider))''')
+                  
+    # Check if last_synced_at exists (migration)
+    try:
+        c.execute("SELECT last_synced_at FROM connected_accounts LIMIT 1")
+    except sqlite3.OperationalError:
+        c.execute("ALTER TABLE connected_accounts ADD COLUMN last_synced_at TIMESTAMP")
         
     conn.commit()
     conn.close()
@@ -495,3 +502,26 @@ def delete_connected_account(user_id, provider):
     c.execute("DELETE FROM connected_accounts WHERE user_id = ? AND provider = ?", (user_id, provider))
     conn.commit()
     conn.close()
+
+def update_last_synced(user_id, provider):
+    conn = sqlite3.connect(get_db_path())
+    c = conn.cursor()
+    from datetime import datetime
+    c.execute("UPDATE connected_accounts SET last_synced_at = ? WHERE user_id = ? AND provider = ?", (datetime.utcnow(), user_id, provider))
+    conn.commit()
+    conn.close()
+
+def get_users_needing_sync(provider, hours=24):
+    conn = sqlite3.connect(get_db_path())
+    conn.row_factory = sqlite3.Row
+    c = conn.cursor()
+    # Find users where last_synced_at is NULL OR older than X hours
+    query = f"""
+        SELECT user_id FROM connected_accounts 
+        WHERE provider = ? 
+        AND (last_synced_at IS NULL OR last_synced_at < datetime('now', '-{hours} hours'))
+    """
+    c.execute(query, (provider,))
+    rows = c.fetchall()
+    conn.close()
+    return [row['user_id'] for row in rows]

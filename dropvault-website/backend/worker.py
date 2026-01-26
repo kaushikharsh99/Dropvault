@@ -10,7 +10,7 @@ import torch
 import gc
 from concurrent.futures import ThreadPoolExecutor
 
-from .database import update_item, get_item, get_processing_items, insert_chunk, add_item, get_item_by_path, delete_chunks
+from .database import update_item, get_item, get_processing_items, insert_chunk, add_item, get_item_by_path, delete_chunks, update_last_synced, get_users_needing_sync
 from .chunker import split_text
 from .github_data import fetch_github_repos
 from .media_utils import (
@@ -81,9 +81,27 @@ class ProcessingWorker:
         threading.Thread(target=self.gpu_worker, daemon=True).start()
         threading.Thread(target=self.embed_worker, daemon=True).start()
         threading.Thread(target=self.github_worker, daemon=True).start()
+        threading.Thread(target=self.scheduler_worker, daemon=True).start()
         
         # Recover pending tasks
         self.recover_state()
+
+    def scheduler_worker(self):
+        print("[Scheduler] Started. Checking for stale GitHub data every hour.")
+        while self.running:
+            try:
+                # Check for users needing sync (every 24h)
+                stale_users = get_users_needing_sync("github", hours=24)
+                if stale_users:
+                    print(f"[Scheduler] Found {len(stale_users)} users needing GitHub sync.")
+                    for uid in stale_users:
+                        self.add_github_task(uid)
+                
+                # Sleep for 1 hour
+                time.sleep(3600)
+            except Exception as e:
+                print(f"[Scheduler] Error: {e}")
+                time.sleep(3600)
 
     def add_task(self, item_id, file_path, item_type, user_id, thumbnail_path=None):
         task = {
@@ -219,6 +237,7 @@ class ProcessingWorker:
                     }
                     self.embed_queue.put(process_task)
                     
+                update_last_synced(user_id, "github")
                 print(f"[GitHub Worker] Sync complete for {user_id}. {len(repos)} repos queued.")
                 
             except queue.Empty:
