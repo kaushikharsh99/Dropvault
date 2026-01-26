@@ -26,7 +26,7 @@ from .media_utils import UPLOAD_DIR, extract_text, extract_text_from_image, gene
 from .worker import worker, manager
 from .synonyms import expand_query
 from .github_auth import router as github_router
-from .github_data import fetch_github_repos
+from .github_data import fetch_github_data
 
 app = FastAPI()
 

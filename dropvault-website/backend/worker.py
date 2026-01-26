@@ -12,7 +12,7 @@ from concurrent.futures import ThreadPoolExecutor
 
 from .database import update_item, get_item, get_processing_items, insert_chunk, add_item, get_item_by_path, delete_chunks, update_last_synced, get_users_needing_sync
 from .chunker import split_text
-from .github_data import fetch_github_repos
+from .github_data import fetch_github_data
 from .media_utils import (
     extract_text_from_image, 
     extract_text,
@@ -177,10 +177,17 @@ class ProcessingWorker:
                 user_id = task['user_id']
                 
                 print(f"[GitHub Worker] Starting sync for {user_id}")
-                repos = fetch_github_repos(user_id)
+                repos = fetch_github_data(user_id)
                 
                 for repo in repos:
                     content = f"{repo['description'] or ''}\n\nLanguage: {repo['language']}\nStars: {repo['stars']}\n\n--- Recent Commits ---\n{repo['commits']}\n\n--- README ---\n{repo['readme'][:5000]}"
+                    
+                    # Determine tags
+                    tags = "github,code,repo"
+                    if repo.get('category') == 'starred':
+                        tags += ",starred"
+                    if repo.get('is_fork'):
+                        tags += ",fork"
                     
                     # Check for existing item
                     existing = get_item_by_path(user_id, repo['html_url'])
@@ -192,9 +199,9 @@ class ProcessingWorker:
                         # 1. Update Metadata
                         update_item(
                             item_id=item_id,
-                            title=repo['full_name'], # Updates name if renamed
-                            content=content,         # Updates content (readme/commits)
-                            tags="github,code,repo",
+                            title=repo['full_name'], 
+                            content=content,
+                            tags=tags,
                             status="processing",
                             progress_stage="updating",
                             progress_percent=0,
@@ -214,7 +221,7 @@ class ProcessingWorker:
                             notes=f"Synced from GitHub. Updated: {repo['updated_at']}",
                             file_path=repo['html_url'],
                             embedding=None,
-                            tags="github,code,repo",
+                            tags=tags,
                             user_id=user_id,
                             status="pending",
                             progress_stage="queued",
@@ -238,7 +245,7 @@ class ProcessingWorker:
                     self.embed_queue.put(process_task)
                     
                 update_last_synced(user_id, "github")
-                print(f"[GitHub Worker] Sync complete for {user_id}. {len(repos)} repos queued.")
+                print(f"[GitHub Worker] Sync complete for {user_id}. {len(repos)} items queued.")
                 
             except queue.Empty:
                 continue
