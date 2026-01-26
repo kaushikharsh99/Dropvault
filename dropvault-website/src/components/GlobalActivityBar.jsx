@@ -1,5 +1,5 @@
 import React from 'react';
-import { Loader2, UploadCloud, Database } from 'lucide-react';
+import { Loader2, UploadCloud, Database, Activity } from 'lucide-react';
 
 const GlobalActivityBar = ({ uploadingCount = 0, queueSize = 0, activeTasks = [] }) => {
     const processingCount = activeTasks.length;
