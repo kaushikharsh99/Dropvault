@@ -192,6 +192,13 @@ def insert_chunk(item_id, type, text, embedding):
     conn.commit()
     conn.close()
 
+def delete_chunks(item_id):
+    conn = sqlite3.connect(get_db_path())
+    c = conn.cursor()
+    c.execute("DELETE FROM chunks WHERE item_id = ?", (item_id,))
+    conn.commit()
+    conn.close()
+
 def get_all_chunks(user_id=None):
     conn = sqlite3.connect(get_db_path())
     conn.row_factory = sqlite3.Row
@@ -282,6 +289,16 @@ def get_item(item_id, user_id=None):
         c.execute(f"SELECT {fields} FROM items WHERE id = ? AND user_id = ?", (item_id, user_id))
     else:
         c.execute(f"SELECT {fields} FROM items WHERE id = ?", (item_id,))
+    row = c.fetchone()
+    conn.close()
+    return dict(row) if row else None
+
+def get_item_by_path(user_id, file_path):
+    conn = sqlite3.connect(get_db_path())
+    conn.row_factory = sqlite3.Row
+    c = conn.cursor()
+    fields = "id, title, type, content, notes, file_path, created_at, tags, user_id, status"
+    c.execute(f"SELECT {fields} FROM items WHERE user_id = ? AND file_path = ?", (user_id, file_path))
     row = c.fetchone()
     conn.close()
     return dict(row) if row else None

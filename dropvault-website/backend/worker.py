@@ -10,7 +10,7 @@ import torch
 import gc
 from concurrent.futures import ThreadPoolExecutor
 
-from .database import update_item, get_item, get_processing_items, insert_chunk, add_item
+from .database import update_item, get_item, get_processing_items, insert_chunk, add_item, get_item_by_path, delete_chunks
 from .chunker import split_text
 from .github_data import fetch_github_repos
 from .media_utils import (
@@ -162,31 +162,55 @@ class ProcessingWorker:
                 repos = fetch_github_repos(user_id)
                 
                 for repo in repos:
-                    # Create Item in DB
-                    content = f"{repo['description'] or ''}\n\nLanguage: {repo['language']}\nStars: {repo['stars']}\n\nREADME:\n{repo['readme'][:5000]}"
+                    content = f"{repo['description'] or ''}\n\nLanguage: {repo['language']}\nStars: {repo['stars']}\n\n--- Recent Commits ---\n{repo['commits']}\n\n--- README ---\n{repo['readme'][:5000]}"
                     
-                    item_id = add_item(
-                        title=repo['full_name'],
-                        type="link",
-                        content=content,
-                        notes=f"Synced from GitHub. Updated: {repo['updated_at']}",
-                        file_path=repo['html_url'],
-                        embedding=None,
-                        tags="github,code,repo",
-                        user_id=user_id,
-                        status="pending",
-                        progress_stage="queued",
-                        progress_percent=0,
-                        progress_message="Indexing repo..."
-                    )
+                    # Check for existing item
+                    existing = get_item_by_path(user_id, repo['html_url'])
                     
-                    # Add to processing queue (Embed Stage directly as it is text)
+                    if existing:
+                        print(f"[GitHub Worker] Updating existing repo: {repo['full_name']}")
+                        item_id = existing['id']
+                        
+                        # 1. Update Metadata
+                        update_item(
+                            item_id=item_id,
+                            title=repo['full_name'], # Updates name if renamed
+                            content=content,         # Updates content (readme/commits)
+                            tags="github,code,repo",
+                            status="processing",
+                            progress_stage="updating",
+                            progress_percent=0,
+                            progress_message="Updating content...",
+                            user_id=user_id
+                        )
+                        
+                        # 2. Clear old chunks (Critical for re-indexing)
+                        delete_chunks(item_id)
+                        
+                    else:
+                        # Create New Item
+                        item_id = add_item(
+                            title=repo['full_name'],
+                            type="link",
+                            content=content,
+                            notes=f"Synced from GitHub. Updated: {repo['updated_at']}",
+                            file_path=repo['html_url'],
+                            embedding=None,
+                            tags="github,code,repo",
+                            user_id=user_id,
+                            status="pending",
+                            progress_stage="queued",
+                            progress_percent=0,
+                            progress_message="Indexing repo..."
+                        )
+                    
+                    # Add to processing queue (Embed Stage directly)
                     process_task = {
                         "id": item_id,
                         "file_path": repo['html_url'],
                         "type": "link",
                         "user_id": user_id,
-                        "ocr_text": content, # Treat content as OCR text for embedding
+                        "ocr_text": content, 
                         "vision_caption": "",
                         "vision_tags": [],
                         "transcript": "",
