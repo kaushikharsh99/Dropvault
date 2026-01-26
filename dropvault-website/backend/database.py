@@ -97,6 +97,16 @@ def init_db():
                  (user_id TEXT PRIMARY KEY,
                   embedding TEXT,
                   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)''')
+
+    # Connected Accounts Table (OAuth Tokens)
+    c.execute('''CREATE TABLE IF NOT EXISTS connected_accounts
+                 (user_id TEXT,
+                  provider TEXT,
+                  access_token TEXT,
+                  refresh_token TEXT,
+                  scope TEXT,
+                  connected_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                  PRIMARY KEY (user_id, provider))''')
         
     conn.commit()
     conn.close()
@@ -436,3 +446,35 @@ def get_processing_items(user_id=None):
             "message": row["progress_message"]
         })
     return results
+
+def save_connected_account(user_id, provider, access_token, scope=""):
+    conn = sqlite3.connect(get_db_path())
+    c = conn.cursor()
+    from datetime import datetime
+    c.execute("""
+        INSERT INTO connected_accounts (user_id, provider, access_token, scope, connected_at)
+        VALUES (?, ?, ?, ?, ?)
+        ON CONFLICT(user_id, provider)
+        DO UPDATE SET
+            access_token = excluded.access_token,
+            scope = excluded.scope,
+            connected_at = excluded.connected_at
+    """, (user_id, provider, access_token, scope, datetime.utcnow()))
+    conn.commit()
+    conn.close()
+
+def get_connected_account(user_id, provider):
+    conn = sqlite3.connect(get_db_path())
+    conn.row_factory = sqlite3.Row
+    c = conn.cursor()
+    c.execute("SELECT * FROM connected_accounts WHERE user_id = ? AND provider = ?", (user_id, provider))
+    row = c.fetchone()
+    conn.close()
+    return dict(row) if row else None
+
+def delete_connected_account(user_id, provider):
+    conn = sqlite3.connect(get_db_path())
+    c = conn.cursor()
+    c.execute("DELETE FROM connected_accounts WHERE user_id = ? AND provider = ?", (user_id, provider))
+    conn.commit()
+    conn.close()

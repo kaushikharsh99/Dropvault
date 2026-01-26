@@ -5,7 +5,7 @@ import { useAuth } from "./AuthContext";
 import { ThemeProvider } from "./ThemeContext";
 import { Container, Button, Navbar, Row, Col } from "react-bootstrap";
 import { motion, AnimatePresence } from "framer-motion";
-import { Search, LogOut, User, ArrowRight, ArrowLeft, Library, Box, Loader2 } from "lucide-react";
+import { Search, LogOut, User, ArrowRight, ArrowLeft, Library, Box, Loader2, Github } from "lucide-react";
 import UniversalDropZone from "./components/UniversalDropZone";
 import VaultList from "./components/VaultList";
 import LandingPage from "./components/LandingPage";
@@ -14,6 +14,15 @@ import GlobalActivityBar from "./components/GlobalActivityBar";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Toaster } from "@/components/ui/toaster";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 
 const Dashboard = () => {
   const { user, logout } = useAuth();
@@ -27,11 +36,61 @@ const Dashboard = () => {
 
   const handleRefresh = () => setRefreshTrigger(prev => prev + 1);
 
+  // Handle GitHub Callback
+  React.useEffect(() => {
+      const params = new URLSearchParams(window.location.search);
+      const code = params.get("code");
+      const state = params.get("state"); // userId
+      
+      if (code && state && user && user.uid === state) {
+          // Clear URL
+          window.history.replaceState({}, document.title, window.location.pathname);
+          
+          const completeAuth = async () => {
+              try {
+                  const res = await fetch("/api/auth/github/callback", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ code, state })
+                  });
+                  if (res.ok) {
+                      alert("GitHub Connected Successfully! Syncing repositories in background...");
+                      // Trigger Sync
+                      fetch("/api/sync/github", {
+                          method: "POST",
+                          headers: { "Content-Type": "application/x-www-form-urlencoded" },
+                          body: `userId=${user.uid}`
+                      }).catch(console.error);
+                  } else {
+                      const err = await res.json();
+                      alert("GitHub Connection Failed: " + err.detail);
+                  }
+              } catch (e) {
+                  console.error(e);
+                  alert("Connection error.");
+              }
+          };
+          completeAuth();
+      }
+  }, [user]);
+
   // Handlers for UniversalDropZone
   const handleUploadStart = () => setUploadingCount(prev => prev + 1);
   const handleUploadEnd = () => setUploadingCount(prev => Math.max(0, prev - 1));
   const handleQueueChange = (size) => setQueueSize(size);
   
+  const connectGithub = async () => {
+      try {
+          const res = await fetch(`/api/auth/github/url?userId=${user.uid}`);
+          if (!res.ok) throw new Error("Failed to get auth URL");
+          const data = await res.json();
+          window.location.href = data.url;
+      } catch (e) {
+          console.error(e);
+          alert("Could not start GitHub connection. Check console.");
+      }
+  };
+
   const handleItemCreated = (item) => {
       setProcessingItems(prev => ({
           ...prev,
@@ -187,12 +246,40 @@ const Dashboard = () => {
               </div>
               
               <div className="d-flex align-items-center gap-2 border-start ps-3 ms-2">
-                  <div className="bg-primary bg-opacity-10 rounded-circle d-flex align-items-center justify-content-center text-primary fw-bold" style={{ width: "36px", height: "36px" }}>
-                      {user.displayName?.charAt(0)}
-                  </div>
-                  <Button variant="ghost" className="text-muted p-1" onClick={logout} title="Sign Out">
-                      <LogOut size={20} />
-                  </Button>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" className="p-0 rounded-circle border-0 bg-transparent shadow-none" style={{ width: 40, height: 40 }}>
+                        <Avatar className="h-9 w-9 border border-border">
+                          <AvatarImage src={user.photoURL} alt={user.displayName} />
+                          <AvatarFallback className="bg-primary/10 text-primary fw-bold">
+                            {user.displayName?.charAt(0)?.toUpperCase()}
+                          </AvatarFallback>
+                        </Avatar>
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-56 bg-card border-border text-foreground">
+                      <DropdownMenuLabel className="font-normal">
+                        <div className="flex flex-col space-y-1">
+                          <p className="text-sm font-medium leading-none">{user.displayName}</p>
+                          <p className="text-xs leading-none text-muted-foreground">{user.email}</p>
+                        </div>
+                      </DropdownMenuLabel>
+                      <DropdownMenuSeparator className="bg-border" />
+                      <DropdownMenuItem className="cursor-pointer focus:bg-muted focus:text-foreground" onClick={() => {}}>
+                        <User className="mr-2 h-4 w-4" />
+                        <span>Profile</span>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem className="cursor-pointer focus:bg-muted focus:text-foreground" onClick={connectGithub}>
+                        <Github className="mr-2 h-4 w-4" />
+                        <span>Connect GitHub</span>
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator className="bg-border" />
+                      <DropdownMenuItem className="cursor-pointer text-destructive focus:bg-destructive/10 focus:text-destructive" onClick={logout}>
+                        <LogOut className="mr-2 h-4 w-4" />
+                        <span>Log out</span>
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
               </div>
           </div>
         </Container>

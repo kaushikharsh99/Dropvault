@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useAuth } from "../AuthContext";
 import { Modal, Button, Badge, Row, Col } from "react-bootstrap";
 import { motion, AnimatePresence } from "framer-motion";
-import { FileText, Image as ImageIcon, Link as LinkIcon, Video, File, Trash2, ExternalLink, ArrowLeft, Filter, Edit2, Save, X, Loader2, Mic, Play, CheckSquare, Square } from "lucide-react";
+import { FileText, Image as ImageIcon, Link as LinkIcon, Video, File, Trash2, ExternalLink, ArrowLeft, Filter, Edit2, Save, X, Loader2, Mic, Play, CheckSquare, Square, Github } from "lucide-react";
 
 // --- Helper Functions ---
 
@@ -51,9 +51,12 @@ const formatRelativeTime = (timestamp) => {
     return date.toLocaleDateString();
 };
 
-const getIcon = (type, size = 24) => {
+const getIcon = (type, size = 24, title = "", tags = "") => {
     const props = { size, strokeWidth: 1.5 };
     const t = (type || "").toLowerCase();
+    
+    if (tags && (tags.includes("github") || tags.includes("repo"))) return <Github {...props} className="text-gray-100" />;
+
     switch (t) {
         case "image": return <ImageIcon {...props} className="text-purple-400" />;
         case "video": return <Video {...props} className="text-red-400" />;
@@ -128,7 +131,7 @@ const GridItemCard = ({ item, isSelectionMode, isSelected, onSelect, onClick }) 
                      </div>
                  )
              ) :
-             <div className="opacity-50 transform scale-125">{getIcon(item.type, 48)}</div>}
+             <div className="opacity-50 transform scale-125">{getIcon(item.type, 48, item.title, item.tags)}</div>}
         </div>
         <div className="p-3 border-top">
             <h6 className="fw-semibold mb-1 text-truncate text-foreground">{item.title || "Untitled"}</h6>
@@ -169,7 +172,7 @@ const ItemCard = ({ item, isSelectionMode, isSelected, onSelect, onClick }) => {
            </div>
       )}
       <div className="p-2 bg-muted rounded-circle d-flex align-items-center justify-content-center position-relative">
-          {getIcon(item.type)}
+          {getIcon(item.type, 24, item.title, item.tags)}
       </div>
       <div className="flex-grow-1 overflow-hidden">
           <h6 className="fw-semibold mb-1 text-truncate text-foreground">{item.title || "Untitled"}</h6>
@@ -287,14 +290,19 @@ const VaultList = ({ searchQuery = "", viewMode = "list", limit = 0, refreshTrig
       const isYoutube = getYoutubeId(url);
       const itemType = (item.type || "").toLowerCase();
       const isVideo = itemType === "video" || isYoutube || getVimeoId(url) || getDailymotionId(url) || getTwitchId(url) || isTikTokUrl(url) || isInstagramReel(url) || isFacebookUrl(url);
+      const isGithub = item.tags?.includes("github") || item.tags?.includes("repo");
       
-      if (activeFilter === "ALL") return true;
+      // If searching, show everything matching the query regardless of the active tab
+      if (searchQuery) return true;
+
+      if (activeFilter === "ALL") return !isGithub;
+      if (activeFilter === "GITHUB") return isGithub;
       if (activeFilter === "YOUTUBE") return isYoutube;
       if (activeFilter === "IMAGE") return itemType === "image";
-      if (activeFilter === "VIDEO") return isVideo && !isYoutube;
+      if (activeFilter === "VIDEO") return isVideo && !isYoutube && !isGithub;
       if (activeFilter === "AUDIO") return itemType === "audio";
       if (activeFilter === "DOCS") return (itemType === "pdf" || itemType === "file") && itemType !== "audio";
-      if (activeFilter === "LINKS") return ((itemType === "link" || itemType === "article") && !isVideo);
+      if (activeFilter === "LINKS") return ((itemType === "link" || itemType === "article") && !isVideo && !isGithub);
       if (activeFilter === "NOTES") return itemType === "note";
       return true;
   });
@@ -417,9 +425,9 @@ const VaultList = ({ searchQuery = "", viewMode = "list", limit = 0, refreshTrig
   const FilterTabs = () => (
       <div className="d-flex flex-wrap align-items-center justify-content-between mb-4 gap-3">
         <div className="d-flex gap-2 overflow-auto pb-2 flex-grow-1" style={{ scrollbarWidth: "none" }}>
-            {["ALL", "YOUTUBE", "IMAGE", "VIDEO", "AUDIO", "DOCS", "LINKS", "NOTES"].map(f => (
+            {["ALL", "GITHUB", "YOUTUBE", "IMAGE", "VIDEO", "AUDIO", "DOCS", "LINKS", "NOTES"].map(f => (
                 <button key={f} onClick={() => setActiveFilter(f)} className={`btn btn-sm rounded-pill px-3 fw-medium transition-all ${activeFilter === f ? "btn-primary text-white" : "btn-muted text-muted border border-muted"}`} style={{ whiteSpace: "nowrap" }}>
-                    {f === "ALL" ? "All Items" : f === "YOUTUBE" ? "YouTube" : f === "AUDIO" ? "Audio" : f.charAt(0) + f.slice(1).toLowerCase()}
+                    {f === "ALL" ? "All Items" : f === "GITHUB" ? "GitHub" : f === "YOUTUBE" ? "YouTube" : f === "AUDIO" ? "Audio" : f.charAt(0) + f.slice(1).toLowerCase()}
                 </button>
             ))}
         </div>

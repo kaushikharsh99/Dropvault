@@ -25,6 +25,8 @@ from .vision import detect_objects
 from .media_utils import UPLOAD_DIR, extract_text, extract_text_from_image, generate_video_thumbnail, transcribe_audio
 from .worker import worker, manager
 from .synonyms import expand_query
+from .github_auth import router as github_router
+from .github_data import fetch_github_repos
 
 app = FastAPI()
 
@@ -36,6 +38,15 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+app.include_router(github_router)
+
+@app.post("/api/sync/github")
+async def sync_github(userId: str = Form(...)):
+    # Run in background to avoid timeout
+    # We reuse the existing worker queue structure
+    worker.add_github_task(userId)
+    return {"status": "started", "message": "Syncing GitHub repositories..."}
 
 # Init DB
 init_db()

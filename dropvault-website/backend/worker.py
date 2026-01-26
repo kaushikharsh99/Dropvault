@@ -10,8 +10,9 @@ import torch
 import gc
 from concurrent.futures import ThreadPoolExecutor
 
-from .database import update_item, get_item, get_processing_items, insert_chunk
+from .database import update_item, get_item, get_processing_items, insert_chunk, add_item
 from .chunker import split_text
+from .github_data import fetch_github_repos
 from .media_utils import (
     extract_text_from_image, 
     extract_text,
@@ -61,6 +62,7 @@ class ProcessingWorker:
         self.vision_queue = queue.Queue()   # Stage 2A: GPU (BLIP/OWL) - HIGH PRIORITY
         self.whisper_queue = queue.Queue()  # Stage 2B: GPU (Whisper) - LOW PRIORITY
         self.embed_queue = queue.Queue()    # Stage 3: CPU (Embedding)
+        self.github_queue = queue.Queue()   # Stage 0: Network (GitHub Fetch)
         
         # System Limits
         self.cpu_cores = max(2, (os.cpu_count() or 2) - 1)
@@ -78,6 +80,7 @@ class ProcessingWorker:
         threading.Thread(target=self.ocr_worker, daemon=True).start()
         threading.Thread(target=self.gpu_worker, daemon=True).start()
         threading.Thread(target=self.embed_worker, daemon=True).start()
+        threading.Thread(target=self.github_worker, daemon=True).start()
         
         # Recover pending tasks
         self.recover_state()
@@ -99,6 +102,10 @@ class ProcessingWorker:
         }
         self.ocr_queue.put(task)
         print(f"[Worker] Task {item_id} added to OCR queue.")
+
+    def add_github_task(self, user_id):
+        self.github_queue.put({"user_id": user_id})
+        print(f"[Worker] GitHub sync task added for user {user_id}")
 
     def recover_state(self):
         try:
@@ -143,6 +150,57 @@ class ProcessingWorker:
             else:
                  loop.run_until_complete(manager.broadcast(msg))
         except: pass
+
+    # --- STAGE 4: GitHub Worker ---
+    def github_worker(self):
+        while self.running:
+            try:
+                task = self.github_queue.get(timeout=1)
+                user_id = task['user_id']
+                
+                print(f"[GitHub Worker] Starting sync for {user_id}")
+                repos = fetch_github_repos(user_id)
+                
+                for repo in repos:
+                    # Create Item in DB
+                    content = f"{repo['description'] or ''}\n\nLanguage: {repo['language']}\nStars: {repo['stars']}\n\nREADME:\n{repo['readme'][:5000]}"
+                    
+                    item_id = add_item(
+                        title=repo['full_name'],
+                        type="link",
+                        content=content,
+                        notes=f"Synced from GitHub. Updated: {repo['updated_at']}",
+                        file_path=repo['html_url'],
+                        embedding=None,
+                        tags="github,code,repo",
+                        user_id=user_id,
+                        status="pending",
+                        progress_stage="queued",
+                        progress_percent=0,
+                        progress_message="Indexing repo..."
+                    )
+                    
+                    # Add to processing queue (Embed Stage directly as it is text)
+                    process_task = {
+                        "id": item_id,
+                        "file_path": repo['html_url'],
+                        "type": "link",
+                        "user_id": user_id,
+                        "ocr_text": content, # Treat content as OCR text for embedding
+                        "vision_caption": "",
+                        "vision_tags": [],
+                        "transcript": "",
+                        "meta_title": repo['full_name'],
+                        "meta_image": None
+                    }
+                    self.embed_queue.put(process_task)
+                    
+                print(f"[GitHub Worker] Sync complete for {user_id}. {len(repos)} repos queued.")
+                
+            except queue.Empty:
+                continue
+            except Exception as e:
+                print(f"[GitHub Worker] Error: {e}")
 
     # --- STAGE 1: CPU Worker (OCR) ---
     def ocr_worker(self):
