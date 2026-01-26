@@ -197,7 +197,7 @@ const ItemCard = ({ item, isSelectionMode, isSelected, onSelect, onClick }) => {
 };
 // --- Main Component ---
 
-const VaultList = ({ searchQuery = "", viewMode = "list", limit = 0, refreshTrigger }) => {
+const VaultList = ({ searchQuery = "", activeTags = [], viewMode = "list", limit = 0, refreshTrigger }) => {
   const { user } = useAuth();
   
   const [itemsPool, setItemsPool] = useState([]);
@@ -283,7 +283,7 @@ const VaultList = ({ searchQuery = "", viewMode = "list", limit = 0, refreshTrig
 
   // ... (fetch logic remains same, but using itemsPool/searchResults)
   // 1. Derived State: base items
-  const baseItems = searchQuery ? searchResults : itemsPool;
+  const baseItems = (searchQuery || activeTags.length > 0) ? searchResults : itemsPool;
 
   // 2. Derived State: filtered items
   const filteredItems = baseItems.filter(item => {
@@ -295,7 +295,7 @@ const VaultList = ({ searchQuery = "", viewMode = "list", limit = 0, refreshTrig
       const isGithub = tagsStr.includes("github") || tagsStr.includes("repo");
       
       // If searching, show everything matching the query regardless of the active tab
-      if (searchQuery) return true;
+      if (searchQuery || activeTags.length > 0) return true;
 
       if (activeFilter === "ALL") return !isGithub;
       if (activeFilter === "GITHUB") return isGithub;
@@ -320,8 +320,11 @@ const VaultList = ({ searchQuery = "", viewMode = "list", limit = 0, refreshTrig
           const offset = isInitial ? 0 : itemsPool.length; 
           const currentPageSize = getPageSize(isInitial);
           
-          if (searchQuery) {
+          if (searchQuery || activeTags.length > 0) {
               url = `/api/search?q=${encodeURIComponent(searchQuery)}`;
+              if (activeTags.length > 0) {
+                  url += `&tags=${encodeURIComponent(activeTags.join(","))}`;
+              }
               setIsSearching(true);
           } else {
               url += `?limit=${currentPageSize}&offset=${offset}&type=${activeFilter}`;
@@ -335,7 +338,7 @@ const VaultList = ({ searchQuery = "", viewMode = "list", limit = 0, refreshTrig
           const res = await fetch(url);
           if (res.ok) {
               const data = await res.json();
-              if (searchQuery) {
+              if (searchQuery || activeTags.length > 0) {
                   setSearchResults(data);
               } else {
                   setItemsPool(prev => {
@@ -384,7 +387,7 @@ const VaultList = ({ searchQuery = "", viewMode = "list", limit = 0, refreshTrig
       } else {
           fetchItems(true);
       }
-  }, [user, searchQuery, refreshTrigger, limit, activeFilter]);
+  }, [user, searchQuery, activeTags, refreshTrigger, limit, activeFilter]);
 
   useEffect(() => {
       if (selectedItem) {

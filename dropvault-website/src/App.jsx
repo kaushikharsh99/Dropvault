@@ -365,7 +365,7 @@ const Dashboard = () => {
                         </h4>
                     </div>
                     
-                    <VaultList searchQuery={effectiveSearchQuery} viewMode="grouped" refreshTrigger={refreshTrigger} />
+                    <VaultList searchQuery={searchQuery} activeTags={activeTags} viewMode="grouped" refreshTrigger={refreshTrigger} />
                 </motion.div>
             )}
         </AnimatePresence>

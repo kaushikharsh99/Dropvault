@@ -214,7 +214,7 @@ def get_all_chunks(user_id=None):
     # Join with items to get user_id and item metadata for filtering
     query = """
         SELECT c.id, c.item_id, c.type as chunk_type, c.text, c.embedding, 
-               i.user_id, i.type as item_type, i.created_at, i.title
+               i.user_id, i.type as item_type, i.created_at, i.title, i.tags
         FROM chunks c
         JOIN items i ON c.item_id = i.id
     """

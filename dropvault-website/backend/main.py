@@ -516,8 +516,11 @@ def get_recency_boost(created_at_str):
     return 0
 
 @app.get("/api/search")
-async def search(q: str, userId: str = None):
+async def search(q: str, userId: str = None, tags: str = None):
     cleaned_q, start_date, end_date, type_filter, filter_desc = parse_search_intent(q)
+    
+    # Parse tags filter
+    required_tags = [t.strip().lower() for t in tags.split(',')] if tags else []
     
     # --- Step 5: Query Expansion ---
     expanded_q = expand_query(cleaned_q)
@@ -551,6 +554,13 @@ async def search(q: str, userId: str = None):
     candidates = []
     
     for chunk in all_chunks:
+        # 0. Tag Filtering (Hard Filter)
+        if required_tags:
+            item_tags = (chunk.get('tags') or "").lower()
+            # Check if ALL required tags are present in item_tags
+            if not all(rt in item_tags for rt in required_tags):
+                continue
+
         # 1. Metadata Filtering
         if type_filter:
             c_type = chunk['item_type']
