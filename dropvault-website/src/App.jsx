@@ -152,8 +152,8 @@ const Dashboard = () => {
   const activeTasks = Object.values(processingItems);
 
   return (
-    <div className="min-vh-100 bg-light">
-      <Navbar className="mb-4 bg-white border-bottom sticky-top py-3">
+    <div className="min-vh-100 bg-background text-foreground">
+      <Navbar className="mb-4 bg-card border-bottom sticky-top py-3">
         <Container fluid className="px-4">
           <Navbar.Brand 
             href="#" 
@@ -181,7 +181,7 @@ const Dashboard = () => {
                     onFocus={() => {
                         if (viewMode !== "all_items") setViewMode("all_items");
                     }}
-                    className="form-control rounded-pill border-0 bg-light ps-5 py-2"
+                    className="form-control rounded-pill border-0 bg-muted text-foreground ps-5 py-2"
                     style={{ fontSize: "0.95rem" }}
                   />
               </div>

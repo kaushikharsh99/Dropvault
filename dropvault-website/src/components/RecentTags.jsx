@@ -46,14 +46,14 @@ const RecentTags = ({ onTagSelect, selectedTags = [] }) => {
                 )}
             </div>
             
-            <div className="d-flex flex-wrap gap-2 align-items-center bg-white p-3 rounded-4 border shadow-sm">
+            <div className="d-flex flex-wrap gap-2 align-items-center bg-card p-3 rounded-4 border shadow-sm">
                 {tags.slice(0, 20).map((tag, idx) => {
                     const isActive = selectedTags.includes(tag.text);
                     
                     const pastelStyle = {
-                        backgroundColor: '#dcfce7', // light green-100
-                        color: '#15803d', // green-700
-                        borderColor: '#bbf7d0' // green-200
+                        backgroundColor: 'rgba(255, 255, 255, 0.05)', 
+                        color: 'rgba(255, 255, 255, 0.8)', 
+                        borderColor: 'rgba(255, 255, 255, 0.1)'
                     };
 
                     return (
@@ -68,7 +68,7 @@ const RecentTags = ({ onTagSelect, selectedTags = [] }) => {
                             className={`btn rounded-pill px-3 py-1 transition-all d-flex align-items-center gap-2 border ${isActive ? 'shadow ring-2 ring-primary' : ''}`}
                             style={{ 
                                 fontSize: '0.9rem',
-                                ...(!isActive ? pastelStyle : { backgroundColor: '#0d6efd', color: 'white', borderColor: '#0d6efd' })
+                                ...(!isActive ? pastelStyle : { backgroundColor: 'var(--primary)', color: 'white', borderColor: 'var(--primary)' })
                             }}
                         >
                             <span className="fw-medium">{tag.text}</span>
@@ -76,7 +76,7 @@ const RecentTags = ({ onTagSelect, selectedTags = [] }) => {
                                 className="badge rounded-pill" 
                                 style={{ 
                                     fontSize: "0.6em", 
-                                    backgroundColor: isActive ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.1)',
+                                    backgroundColor: isActive ? 'rgba(255,255,255,0.3)' : 'rgba(255,255,255,0.1)',
                                     color: 'inherit'
                                 }}
                             >

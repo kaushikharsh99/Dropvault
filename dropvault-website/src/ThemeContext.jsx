@@ -8,41 +8,26 @@ const ThemeContext = createContext({
 export const useTheme = () => useContext(ThemeContext);
 
 export const ThemeProvider = ({ children }) => {
-  const [theme, setTheme] = useState('light');
+  const [theme, setTheme] = useState('dark');
 
   useEffect(() => {
-    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
-    
-    const applyTheme = (isDark) => {
-      const newTheme = isDark ? 'dark' : 'light';
+    const applyTheme = () => {
+      const newTheme = 'dark';
       setTheme(newTheme);
       
       const root = document.documentElement;
       
-      // Apply Tailwind/Custom CSS class
-      if (isDark) {
-        root.classList.add('dark');
-      } else {
-        root.classList.remove('dark');
-      }
-
-      // Apply Bootstrap 5.3 theme attribute
-      root.setAttribute('data-bs-theme', newTheme);
+      // Force Dark Mode
+      root.classList.add('dark');
+      root.setAttribute('data-bs-theme', 'dark');
     };
 
-    // Initial check
-    applyTheme(mediaQuery.matches);
-
-    // Listener for system changes
-    const handleChange = (e) => applyTheme(e.matches);
-    mediaQuery.addEventListener('change', handleChange);
-
-    return () => mediaQuery.removeEventListener('change', handleChange);
+    applyTheme();
   }, []);
 
   const value = {
-    theme,
-    isDark: theme === 'dark',
+    theme: 'dark',
+    isDark: true,
   };
 
   return (

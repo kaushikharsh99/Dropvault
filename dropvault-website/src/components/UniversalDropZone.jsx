@@ -149,10 +149,10 @@ const UniversalDropZone = ({ onItemAdded, onUploadStart, onUploadEnd, onQueueCha
     >
         <motion.div
             layout
-            className={`d-flex flex-column align-items-center justify-content-center p-5 rounded-4 border-2 border-dashed transition-all cursor-pointer bg-white shadow-sm position-relative overflow-hidden`}
+            className={`d-flex flex-column align-items-center justify-content-center p-5 rounded-4 border-2 border-dashed transition-all cursor-pointer bg-card shadow-sm position-relative overflow-hidden`}
             style={{ 
-                borderColor: isDragging ? "#4F6EF7" : "#E5E7EB",
-                backgroundColor: isDragging ? "rgba(79, 110, 247, 0.05)" : "#FFFFFF",
+                borderColor: isDragging ? "#4F6EF7" : "var(--border)",
+                backgroundColor: isDragging ? "rgba(79, 110, 247, 0.1)" : "var(--card)",
                 minHeight: "160px"
             }}
             onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
@@ -185,14 +185,14 @@ const UniversalDropZone = ({ onItemAdded, onUploadStart, onUploadEnd, onQueueCha
                             <ImageIcon size={24} />
                             <LinkIcon size={24} />
                         </div>
-                        <h5 className="fw-bold mb-1 text-dark">Drop anything here</h5>
+                        <h5 className="fw-bold mb-1 text-foreground">Drop anything here</h5>
                         <p className="small text-muted mb-0">PDFs, Images, Links, or just Notes</p>
-                        <span className="badge bg-light text-muted mt-2 border rounded-pill px-2 py-1" style={{ fontSize: "0.7rem" }}>Multi-upload supported</span>
+                        <span className="badge bg-muted text-muted mt-2 border rounded-pill px-2 py-1" style={{ fontSize: "0.7rem" }}>Multi-upload supported</span>
                     </div>
                 )}
 
                 <div className="w-100 position-relative d-flex flex-column gap-2" style={{ maxWidth: "500px" }} onClick={e => e.stopPropagation()}>
-                        <div className="d-flex align-items-end bg-light rounded-4 px-3 py-2 border">
+                        <div className="d-flex align-items-end bg-muted rounded-4 px-3 py-2 border border-opacity-10">
                         <Plus size={20} className="text-muted me-2 mb-1" />
                         <Form.Control 
                             as="textarea" 
@@ -207,7 +207,7 @@ const UniversalDropZone = ({ onItemAdded, onUploadStart, onUploadEnd, onQueueCha
                                     handleTextSubmit();
                                 }
                             }}
-                            className="bg-transparent border-0 shadow-none p-0 text-dark fw-medium"
+                            className="bg-transparent border-0 shadow-none p-0 text-foreground fw-medium"
                             style={{ 
                                 resize: "none", 
                                 fontSize: "1rem", 
@@ -229,7 +229,7 @@ const UniversalDropZone = ({ onItemAdded, onUploadStart, onUploadEnd, onQueueCha
                         )}
                         </div>
                         
-                        <div className="d-flex align-items-center px-2 py-1 bg-light rounded-pill mt-2 border border-opacity-10">
+                        <div className="d-flex align-items-center px-2 py-1 bg-muted rounded-pill mt-2 border border-opacity-10">
                         <span className="text-muted small me-2 ps-2 fw-bold text-uppercase" style={{ fontSize: '0.65rem' }}>Tags:</span>
                         <Form.Control
                             type="text"

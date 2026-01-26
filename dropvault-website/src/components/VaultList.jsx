@@ -55,13 +55,13 @@ const getIcon = (type, size = 24) => {
     const props = { size, strokeWidth: 1.5 };
     const t = (type || "").toLowerCase();
     switch (t) {
-        case "image": return <ImageIcon {...props} className="text-purple-500" />;
-        case "video": return <Video {...props} className="text-red-500" />;
-        case "pdf": return <FileText {...props} className="text-orange-500" />;
-        case "link": return <LinkIcon {...props} className="text-blue-500" />;
-        case "article": return <FileText {...props} className="text-gray-500" />;
-        case "audio": return <Mic {...props} className="text-green-500" />;
-        default: return <File {...props} className="text-gray-400" />;
+        case "image": return <ImageIcon {...props} className="text-purple-400" />;
+        case "video": return <Video {...props} className="text-red-400" />;
+        case "pdf": return <FileText {...props} className="text-orange-400" />;
+        case "link": return <LinkIcon {...props} className="text-blue-400" />;
+        case "article": return <FileText {...props} className="text-gray-400" />;
+        case "audio": return <Mic {...props} className="text-green-400" />;
+        default: return <File {...props} className="text-gray-300" />;
     }
 };
 
@@ -100,19 +100,19 @@ const GridItemCard = ({ item, isSelectionMode, isSelected, onSelect, onClick }) 
     <motion.div 
         initial={{ opacity: 0, scale: 0.95 }} 
         animate={{ opacity: 1, scale: 1 }} 
-        whileHover={{ y: -4, boxShadow: "0 8px 20px rgba(0,0,0,0.08)" }} 
+        whileHover={{ y: -4, boxShadow: "0 8px 20px rgba(0,0,0,0.3)" }} 
         onClick={() => isSelectionMode ? onSelect(item.id) : onClick(item)} 
-        className="bg-white rounded-4 border h-100 overflow-hidden cursor-pointer d-flex flex-column position-relative" 
+        className="bg-card rounded-4 border h-100 overflow-hidden cursor-pointer d-flex flex-column position-relative" 
         style={{ minHeight: "200px", ...(isSelected ? {boxShadow: "0 0 0 2px var(--bs-primary)"} : {}) }}
     >
         {isSelectionMode && (
            <div className="position-absolute top-0 end-0 p-2" style={{ zIndex: 10 }}>
-               <div className={`rounded bg-white d-flex align-items-center justify-content-center shadow-sm border ${isSelected ? 'border-primary text-primary' : 'border-secondary text-muted'}`} style={{ width: 28, height: 28 }}>
+               <div className={`rounded bg-card d-flex align-items-center justify-content-center shadow-sm border ${isSelected ? 'border-primary text-primary' : 'border-secondary text-muted'}`} style={{ width: 28, height: 28 }}>
                    {isSelected ? <CheckSquare size={18} /> : <Square size={18} />}
                </div>
            </div>
         )}
-        <div className="flex-grow-1 bg-light d-flex align-items-center justify-content-center position-relative overflow-hidden" style={{ minHeight: "140px" }}>
+        <div className="flex-grow-1 bg-muted d-flex align-items-center justify-content-center position-relative overflow-hidden" style={{ minHeight: "140px" }}>
             {itemType === "image" ? <img src={item.file_path} alt="" className="w-100 h-100 object-fit-cover position-absolute" /> :
              isVid ? (
                  displayThumbnail ? (
@@ -131,7 +131,7 @@ const GridItemCard = ({ item, isSelectionMode, isSelected, onSelect, onClick }) 
              <div className="opacity-50 transform scale-125">{getIcon(item.type, 48)}</div>}
         </div>
         <div className="p-3 border-top">
-            <h6 className="fw-semibold mb-1 text-truncate text-dark">{item.title || "Untitled"}</h6>
+            <h6 className="fw-semibold mb-1 text-truncate text-foreground">{item.title || "Untitled"}</h6>
             
             {/* Smart Search Explanation */}
             {item.explanation && (
@@ -159,8 +159,8 @@ const ItemCard = ({ item, isSelectionMode, isSelected, onSelect, onClick }) => {
   <motion.div 
       initial={{ opacity: 0, y: 10 }} 
       animate={{ opacity: 1, y: 0 }} 
-      whileHover={{ y: -2, boxShadow: "0 4px 12px rgba(0,0,0,0.05)" }} 
-      className={`bg-white rounded-3 border p-3 cursor-pointer d-flex align-items-center gap-3 transition-all ${isSelected ? 'border-primary bg-light' : ''}`} 
+      whileHover={{ y: -2, boxShadow: "0 4px 12px rgba(0,0,0,0.2)" }} 
+      className={`bg-card rounded-3 border p-3 cursor-pointer d-flex align-items-center gap-3 transition-all ${isSelected ? 'border-primary bg-muted' : ''}`} 
       onClick={() => isSelectionMode ? onSelect(item.id) : onClick(item)}
   >
       {isSelectionMode && (
@@ -168,11 +168,11 @@ const ItemCard = ({ item, isSelectionMode, isSelected, onSelect, onClick }) => {
                {isSelected ? <CheckSquare size={20} /> : <Square size={20} />}
            </div>
       )}
-      <div className="p-2 bg-light rounded-circle d-flex align-items-center justify-content-center position-relative">
+      <div className="p-2 bg-muted rounded-circle d-flex align-items-center justify-content-center position-relative">
           {getIcon(item.type)}
       </div>
       <div className="flex-grow-1 overflow-hidden">
-          <h6 className="fw-semibold mb-1 text-truncate text-dark">{item.title || "Untitled"}</h6>
+          <h6 className="fw-semibold mb-1 text-truncate text-foreground">{item.title || "Untitled"}</h6>
           
           {/* Smart Search Explanation */}
           {item.explanation && (
@@ -418,7 +418,7 @@ const VaultList = ({ searchQuery = "", viewMode = "list", limit = 0, refreshTrig
       <div className="d-flex flex-wrap align-items-center justify-content-between mb-4 gap-3">
         <div className="d-flex gap-2 overflow-auto pb-2 flex-grow-1" style={{ scrollbarWidth: "none" }}>
             {["ALL", "YOUTUBE", "IMAGE", "VIDEO", "AUDIO", "DOCS", "LINKS", "NOTES"].map(f => (
-                <button key={f} onClick={() => setActiveFilter(f)} className={`btn btn-sm rounded-pill px-3 fw-medium transition-all ${activeFilter === f ? "btn-dark" : "btn-light text-muted border"}`} style={{ whiteSpace: "nowrap" }}>
+                <button key={f} onClick={() => setActiveFilter(f)} className={`btn btn-sm rounded-pill px-3 fw-medium transition-all ${activeFilter === f ? "btn-primary text-white" : "btn-muted text-muted border border-muted"}`} style={{ whiteSpace: "nowrap" }}>
                     {f === "ALL" ? "All Items" : f === "YOUTUBE" ? "YouTube" : f === "AUDIO" ? "Audio" : f.charAt(0) + f.slice(1).toLowerCase()}
                 </button>
             ))}
@@ -459,7 +459,7 @@ const VaultList = ({ searchQuery = "", viewMode = "list", limit = 0, refreshTrig
                   <Row className="g-3 row-cols-2 row-cols-md-3 row-cols-lg-4 row-cols-xl-5">
                       {[...Array(limit > 0 ? limit : 10)].map((_, i) => (
                           <Col key={i}>
-                              <div className="bg-light rounded-4 border animate-pulse" style={{ height: "200px" }}></div>
+                              <div className="bg-muted rounded-4 border animate-pulse" style={{ height: "200px" }}></div>
                           </Col>
                       ))}
                   </Row>
@@ -510,11 +510,11 @@ const VaultList = ({ searchQuery = "", viewMode = "list", limit = 0, refreshTrig
           )}
       </AnimatePresence>
 
-      <Modal show={!!selectedItem} onHide={() => setSelectedItem(null)} centered size="lg" contentClassName="border-0 shadow-lg rounded-4 overflow-hidden">
+      <Modal show={!!selectedItem} onHide={() => setSelectedItem(null)} centered size="lg" contentClassName="border-0 shadow-lg rounded-4 overflow-hidden bg-card text-foreground">
         <Modal.Body className="p-0">
              {selectedItem && (
                  <div>
-                     <div className="d-flex align-items-center justify-content-between p-4 border-bottom bg-white sticky-top">
+                     <div className="d-flex align-items-center justify-content-between p-4 border-bottom bg-card sticky-top">
                         <Button variant="ghost" className="p-0 text-muted d-flex align-items-center gap-2" onClick={() => setSelectedItem(null)}><ArrowLeft size={20} /> Back</Button>
                         <div className="d-flex gap-2">
                              {isEditing ? (
@@ -530,23 +530,23 @@ const VaultList = ({ searchQuery = "", viewMode = "list", limit = 0, refreshTrig
                              )}
                         </div>
                      </div>
-                     <div className="p-4 p-md-5 bg-light" style={{ minHeight: "60vh" }}>
+                     <div className="p-4 p-md-5 bg-background" style={{ minHeight: "60vh" }}>
                         {isEditing ? (
-                            <div className="bg-white p-4 rounded-4 border">
-                                <input type="text" className="form-control mb-3" value={editForm.title} onChange={e => setEditForm({...editForm, title: e.target.value})} />
-                                <textarea className="form-control mb-3" rows={10} value={editForm.content} onChange={e => setEditForm({...editForm, content: e.target.value})} />
-                                <input type="text" className="form-control" value={editForm.tags} onChange={e => setEditForm({...editForm, tags: e.target.value})} />
+                            <div className="bg-card p-4 rounded-4 border">
+                                <input type="text" className="form-control mb-3 bg-muted border-0 text-foreground" value={editForm.title} onChange={e => setEditForm({...editForm, title: e.target.value})} />
+                                <textarea className="form-control mb-3 bg-muted border-0 text-foreground" rows={10} value={editForm.content} onChange={e => setEditForm({...editForm, content: e.target.value})} />
+                                <input type="text" className="form-control bg-muted border-0 text-foreground" value={editForm.tags} onChange={e => setEditForm({...editForm, tags: e.target.value})} />
                             </div>
                         ) : (
                             <div>
                                 <h2 className="fw-bold mb-2">{selectedItem.title || "Untitled"}</h2>
                                 <div className="d-flex gap-2 mb-4 text-muted small"><span className="text-uppercase">{selectedItem.type}</span>•<span>{formatRelativeTime(selectedItem.created_at)}</span></div>
-                                <div className="bg-white p-4 rounded-4 border">
+                                <div className="bg-card p-4 rounded-4 border">
                                     {selectedItem.type === "image" && <div className="text-center"><img src={selectedItem.file_path} alt="" className="img-fluid rounded mb-3" style={{ maxHeight: "500px" }} /></div>}
                                     
                                     {(selectedItem.type === "audio" || (selectedItem.type === "video" && selectedItem.file_path && !selectedItem.file_path.startsWith('http'))) && (
                                         <div className="mb-4">
-                                            <div className="bg-light p-3 rounded-3 mb-3 border d-flex align-items-center justify-content-center">
+                                            <div className="bg-muted p-3 rounded-3 mb-3 border d-flex align-items-center justify-content-center">
                                                 {selectedItem.type === "audio" ? (
                                                     <audio controls style={{ width: "100%" }}>
                                                         <source 
@@ -618,7 +618,7 @@ const VaultList = ({ searchQuery = "", viewMode = "list", limit = 0, refreshTrig
                                     )}
 
                                     {selectedItem.content?.includes("--- Extracted Links ---") && (
-                                        <div className="mt-4 p-3 bg-light rounded-3 border">
+                                        <div className="mt-4 p-3 bg-muted rounded-3 border">
                                             <small className="text-muted d-block mb-2 fw-bold text-uppercase">Extracted Links</small>
                                             <div className="d-flex flex-column gap-2">
                                                 {selectedItem.content.split("--- Extracted Links ---")[1].split("\n").map(l => {

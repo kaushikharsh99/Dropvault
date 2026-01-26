@@ -17,25 +17,16 @@ const StandaloneDropZone = () => {
     const handleUploadEnd = () => setUploadingCount(prev => Math.max(0, prev - 1));
     const handleQueueChange = (size) => setQueueSize(size);
 
-    return (
-        <div className="min-vh-100 bg-light d-flex flex-column">
-            <Navbar className="bg-white border-bottom py-3">
-                <Container fluid className="px-4">
-                    <div className="d-flex align-items-center gap-3">
-                        <Button 
-                            variant="ghost" 
-                            className="p-1 text-muted"
-                            onClick={() => navigate("/")}
-                        >
-                            <ArrowLeft size={24} />
-                        </Button>
-                        <Navbar.Brand className="fw-bold fs-4 d-flex align-items-center gap-2 text-primary m-0">
-                            <Box size={28} strokeWidth={2} />
-                            DropZone
-                        </Navbar.Brand>
-                    </div>
-                </Container>
-            </Navbar>
+  return (
+    <div className="min-vh-100 bg-background text-foreground d-flex flex-column">
+      <Navbar className="bg-card border-bottom py-3">
+        <Container fluid className="px-4">
+          <Navbar.Brand href="#" className="fw-bold fs-4 d-flex align-items-center gap-2 text-primary">
+            <Box size={28} />
+            DropVault
+          </Navbar.Brand>
+        </Container>
+      </Navbar>
 
             <Container className="flex-grow-1 d-flex flex-column justify-content-center py-5">
                 <GlobalActivityBar uploadingCount={uploadingCount} queueSize={queueSize} activeTasks={[]} />

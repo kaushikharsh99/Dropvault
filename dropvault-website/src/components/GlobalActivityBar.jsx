@@ -8,14 +8,14 @@ const GlobalActivityBar = ({ uploadingCount = 0, queueSize = 0, activeTasks = []
     if (!hasActivity) return null;
 
     return (
-        <div className="mb-4">
-            <div className="bg-white rounded-4 border p-3 shadow-sm d-flex align-items-center justify-content-between">
-                <div className="d-flex align-items-center gap-3">
-                    <div className="bg-primary bg-opacity-10 p-2 rounded-circle text-primary">
-                        <Loader2 size={20} className="animate-spin" />
-                    </div>
-                    <div>
-                        <h6 className="mb-0 fw-bold text-dark small text-uppercase">System Activity</h6>
+    <div className="mb-4">
+        <div className="bg-card rounded-4 border p-3 shadow-sm d-flex align-items-center justify-content-between">
+            <div className="d-flex align-items-center gap-3">
+                <div className="bg-primary bg-opacity-10 p-2 rounded-circle text-primary">
+                    <Activity size={20} />
+                </div>
+                <div>
+                    <h6 className="mb-0 fw-bold text-foreground small text-uppercase">System Activity</h6>
                         <div className="d-flex align-items-center gap-3 small text-muted mt-1">
                             {(uploadingCount > 0 || queueSize > 0) && (
                                 <span className="d-flex align-items-center gap-1">
