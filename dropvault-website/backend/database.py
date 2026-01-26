@@ -253,9 +253,11 @@ def get_all_items(user_id=None, limit=None, offset=None, item_type=None):
         if item_type == "DOCS":
             query += " AND (type = 'pdf' OR type = 'file')"
         elif item_type == "LINKS":
-            query += " AND (type = 'link' OR type = 'article')"
+            query += " AND (type = 'link' OR type = 'article') AND (tags NOT LIKE '%github%' OR tags IS NULL)"
         elif item_type == "YOUTUBE":
             query += " AND type = 'video'"
+        elif item_type == "GITHUB":
+            query += " AND tags LIKE '%github%'"
         else:
             query += " AND type = ?"
             params.append(item_type.lower())

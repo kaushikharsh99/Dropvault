@@ -54,8 +54,9 @@ const formatRelativeTime = (timestamp) => {
 const getIcon = (type, size = 24, title = "", tags = "") => {
     const props = { size, strokeWidth: 1.5 };
     const t = (type || "").toLowerCase();
+    const tagsStr = (tags || "").toLowerCase();
     
-    if (tags && (tags.includes("github") || tags.includes("repo"))) return <Github {...props} className="text-gray-100" />;
+    if (tagsStr.includes("github") || tagsStr.includes("repo")) return <Github {...props} className="text-gray-100" />;
 
     switch (t) {
         case "image": return <ImageIcon {...props} className="text-purple-400" />;
@@ -290,7 +291,8 @@ const VaultList = ({ searchQuery = "", viewMode = "list", limit = 0, refreshTrig
       const isYoutube = getYoutubeId(url);
       const itemType = (item.type || "").toLowerCase();
       const isVideo = itemType === "video" || isYoutube || getVimeoId(url) || getDailymotionId(url) || getTwitchId(url) || isTikTokUrl(url) || isInstagramReel(url) || isFacebookUrl(url);
-      const isGithub = item.tags?.includes("github") || item.tags?.includes("repo");
+      const tagsStr = (item.tags || "").toLowerCase();
+      const isGithub = tagsStr.includes("github") || tagsStr.includes("repo");
       
       // If searching, show everything matching the query regardless of the active tab
       if (searchQuery) return true;
