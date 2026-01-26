@@ -20,7 +20,7 @@ from PIL import Image
 import whisper
 from io import BytesIO
 from .ai import generate_embedding, query_embedding, cosine_sim
-from .database import init_db, add_item, get_all_items, delete_item, delete_items, update_item, get_item, get_all_items_with_embeddings, get_all_tags, get_processing_items, get_all_chunks
+from .database import init_db, add_item, get_all_items, delete_item, delete_items, update_item, get_item, get_all_items_with_embeddings, get_all_tags, get_processing_items, get_all_chunks, record_access, update_user_profile, get_user_profile
 from .vision import detect_objects
 from .media_utils import UPLOAD_DIR, extract_text, extract_text_from_image, generate_video_thumbnail, transcribe_audio
 from .worker import worker, manager
@@ -480,6 +480,13 @@ def keyword_overlap_score(query_words, text):
     words = set(text.lower().split())
     return len(query_words & words)
 
+def usage_boost(access_count):
+    if not access_count: return 0.0
+    if access_count >= 20: return 0.07
+    if access_count >= 10: return 0.05
+    if access_count >= 3: return 0.03
+    return 0.0
+
 def get_modality_boost(query, chunk_type):
     q = query.lower()
     if any(w in q for w in VISUAL_HINTS) and chunk_type in ["visual", "caption"]:
@@ -509,6 +516,21 @@ async def search(q: str, userId: str = None):
     if cleaned_q:
         # Use expanded query for embedding to improve semantic recall
         q_vec = query_embedding(expanded_q if expanded_q else cleaned_q)
+        
+        # --- Step 8: Personal Relevance Tuning ---
+        if userId:
+            user_vec = get_user_profile(userId)
+            if user_vec and q_vec is not None:
+                # Blend: 85% Query, 15% User Context
+                try:
+                    import numpy as np
+                    q_arr = np.array(q_vec)
+                    u_arr = np.array(user_vec)
+                    # Simple weighted average
+                    q_vec = (0.85 * q_arr + 0.15 * u_arr).tolist()
+                except Exception as e:
+                    print(f"Error blending user profile: {e}")
+
         # Use expanded words for keyword matching to handle synonyms
         query_keywords = get_keywords(expanded_q if expanded_q else cleaned_q)
     
@@ -619,6 +641,10 @@ async def search(q: str, userId: str = None):
         item = get_item(iid, userId)
         if not item: continue
         
+        # --- Step 6: Usage Boost ---
+        u_boost = usage_boost(item.get('access_count', 0))
+        item_score += u_boost
+        
         item['score'] = float(item_score)
         
         explanation = f"Matched {best_chunk['chunk_type']}: \"{best_chunk['text'][:100]}...\""
@@ -626,6 +652,8 @@ async def search(q: str, userId: str = None):
             explanation += f" [{best_chunk['boosts']}]"
         if evidence_count > 0:
             explanation += f" (+{evidence_count} more)"
+        if u_boost > 0:
+            explanation += f" (+UsageBoost)"
             
         if filter_desc:
             explanation += f" ({filter_desc})"
@@ -676,6 +704,23 @@ async def get_single_item(item_id: int, userId: str = None):
     item = get_item(item_id, userId)
     if not item:
         raise HTTPException(status_code=404, detail="Item not found")
+    
+    # --- Step 6 & 8: Feedback Loop ---
+    # Record access for usage boost
+    try:
+        record_access(item_id, 1)
+    except Exception as e:
+        print(f"Error recording access: {e}")
+
+    # Update user profile for personalization
+    if userId:
+        try:
+            # We run this in background or just fire and forget since it might be slow?
+            # For now, synchronous is fine as sqlite is fast enough for single user.
+            update_user_profile(userId)
+        except Exception as e:
+            print(f"Error updating user profile: {e}")
+
     return item
 
 @app.post("/api/tags")

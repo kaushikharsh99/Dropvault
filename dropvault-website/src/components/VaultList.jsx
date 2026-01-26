@@ -132,6 +132,19 @@ const GridItemCard = ({ item, isSelectionMode, isSelected, onSelect, onClick }) 
         </div>
         <div className="p-3 border-top">
             <h6 className="fw-semibold mb-1 text-truncate text-dark">{item.title || "Untitled"}</h6>
+            
+            {/* Smart Search Explanation */}
+            {item.explanation && (
+                <div className="mb-2 p-2 rounded bg-primary bg-opacity-10 border border-primary border-opacity-25">
+                    <div className="d-flex align-items-center gap-1 mb-1">
+                        <span className="badge bg-primary text-white" style={{fontSize: "0.6rem"}}>AI Match</span>
+                    </div>
+                    <p className="mb-0 text-muted fst-italic lh-sm" style={{fontSize: "0.7rem", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden"}}>
+                        "{item.explanation}"
+                    </p>
+                </div>
+            )}
+
             <div className="d-flex align-items-center justify-content-between text-muted small mt-2">
                 <span className="text-uppercase fw-bold" style={{ fontSize: "0.65rem" }}>{item.type}</span>
                 <span>{formatRelativeTime(item.created_at)}</span>
@@ -160,6 +173,15 @@ const ItemCard = ({ item, isSelectionMode, isSelected, onSelect, onClick }) => {
       </div>
       <div className="flex-grow-1 overflow-hidden">
           <h6 className="fw-semibold mb-1 text-truncate text-dark">{item.title || "Untitled"}</h6>
+          
+          {/* Smart Search Explanation */}
+          {item.explanation && (
+             <div className="my-1 text-muted small fst-italic text-truncate">
+                 <span className="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25 me-2" style={{fontSize: "0.65rem"}}>AI Match</span>
+                 "{item.explanation}"
+             </div>
+          )}
+
           <div className="d-flex align-items-center gap-2 text-muted small">
               <span className="text-uppercase fw-bold" style={{ fontSize: "0.7rem" }}>{item.type}</span>
               <span>•</span>

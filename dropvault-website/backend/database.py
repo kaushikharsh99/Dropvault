@@ -67,6 +67,18 @@ def init_db():
         c.execute("SELECT progress_message FROM items LIMIT 1")
     except sqlite3.OperationalError:
         c.execute("ALTER TABLE items ADD COLUMN progress_message TEXT")
+        
+    # Check if access_count column exists, if not add it
+    try:
+        c.execute("SELECT access_count FROM items LIMIT 1")
+    except sqlite3.OperationalError:
+        c.execute("ALTER TABLE items ADD COLUMN access_count INTEGER DEFAULT 0")
+        
+    # Check if last_accessed column exists, if not add it
+    try:
+        c.execute("SELECT last_accessed FROM items LIMIT 1")
+    except sqlite3.OperationalError:
+        c.execute("ALTER TABLE items ADD COLUMN last_accessed TIMESTAMP")
     
     # Add index for faster queries
     c.execute("CREATE INDEX IF NOT EXISTS idx_user_id ON items(user_id)")
@@ -79,6 +91,12 @@ def init_db():
                   text TEXT,
                   embedding TEXT,
                   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)''')
+                  
+    # User Profile Table (Personal Relevance)
+    c.execute('''CREATE TABLE IF NOT EXISTS user_profile
+                 (user_id TEXT PRIMARY KEY,
+                  embedding TEXT,
+                  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)''')
         
     conn.commit()
     conn.close()
@@ -87,6 +105,74 @@ def init_db():
 def get_db_path():
     base_dir = os.path.dirname(os.path.abspath(__file__))
     return os.path.join(base_dir, DB_NAME)
+
+def get_user_profile(user_id):
+    conn = sqlite3.connect(get_db_path())
+    conn.row_factory = sqlite3.Row
+    c = conn.cursor()
+    c.execute("SELECT embedding FROM user_profile WHERE user_id = ?", (user_id,))
+    row = c.fetchone()
+    conn.close()
+    if row and row['embedding']:
+        return json.loads(row['embedding'])
+    return None
+
+def update_user_profile(user_id):
+    """
+    Computes a user profile vector by averaging embeddings of the last 20 accessed chunks.
+    """
+    conn = sqlite3.connect(get_db_path())
+    conn.row_factory = sqlite3.Row
+    c = conn.cursor()
+    
+    # Get last 20 accessed chunks for this user
+    c.execute("""
+        SELECT c.embedding 
+        FROM chunks c
+        JOIN items i ON c.item_id = i.id
+        WHERE i.user_id = ? AND i.last_accessed IS NOT NULL
+        ORDER BY i.last_accessed DESC
+        LIMIT 20
+    """, (user_id,))
+    
+    rows = c.fetchall()
+    if not rows:
+        conn.close()
+        return
+
+    import numpy as np
+    embeddings = [json.loads(r['embedding']) for r in rows if r['embedding']]
+    if not embeddings:
+        conn.close()
+        return
+        
+    avg_vec = np.mean(np.array(embeddings), axis=0).tolist()
+    
+    from datetime import datetime
+    c.execute("""
+        INSERT INTO user_profile (user_id, embedding, updated_at)
+        VALUES (?, ?, ?)
+        ON CONFLICT(user_id)
+        DO UPDATE SET
+            embedding = excluded.embedding,
+            updated_at = excluded.updated_at
+    """, (user_id, json.dumps(avg_vec), datetime.utcnow()))
+    
+    conn.commit()
+    conn.close()
+
+def record_access(item_id, weight=1):
+    conn = sqlite3.connect(get_db_path())
+    c = conn.cursor()
+    from datetime import datetime
+    c.execute("""
+        UPDATE items
+        SET access_count = access_count + ?,
+            last_accessed = ?
+        WHERE id = ?
+    """, (weight, datetime.utcnow(), item_id))
+    conn.commit()
+    conn.close()
 
 def insert_chunk(item_id, type, text, embedding):
     conn = sqlite3.connect(get_db_path())
@@ -135,7 +221,7 @@ def get_all_items(user_id=None, limit=None, offset=None, item_type=None):
     conn.row_factory = sqlite3.Row
     c = conn.cursor()
     
-    fields = "id, title, type, content, notes, file_path, created_at, tags, user_id, thumbnail_path, status, progress_stage, progress_percent, progress_message"
+    fields = "id, title, type, content, notes, file_path, created_at, tags, user_id, thumbnail_path, status, progress_stage, progress_percent, progress_message, access_count, last_accessed"
     query = f"SELECT {fields} FROM items WHERE user_id = ?"
     params = [user_id]
     
@@ -181,7 +267,7 @@ def get_item(item_id, user_id=None):
     conn = sqlite3.connect(get_db_path())
     conn.row_factory = sqlite3.Row
     c = conn.cursor()
-    fields = "id, title, type, content, notes, file_path, created_at, tags, user_id, thumbnail_path, status, progress_stage, progress_percent, progress_message"
+    fields = "id, title, type, content, notes, file_path, created_at, tags, user_id, thumbnail_path, status, progress_stage, progress_percent, progress_message, access_count, last_accessed"
     if user_id:
         c.execute(f"SELECT {fields} FROM items WHERE id = ? AND user_id = ?", (item_id, user_id))
     else:
