@@ -261,6 +261,9 @@ def get_all_items(user_id=None, limit=None, offset=None, item_type=None):
         else:
             query += " AND type = ?"
             params.append(item_type.lower())
+    elif item_type == "ALL" or item_type is None:
+        # Exclude GitHub items from "ALL" view
+        query += " AND (tags NOT LIKE '%github%' OR tags IS NULL)"
     
     if user_id:
         query += " ORDER BY created_at DESC"
